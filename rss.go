@@ -200,7 +200,11 @@ func newRssItem(i *Item) *RssItem {
 		}
 	}
 	if i.Author != nil {
-		item.Author = i.Author.Name
+		author := i.Author.Email
+		if i.Author.Name != "" {
+			author = fmt.Sprintf("%s (%s)", i.Author.Email, i.Author.Name)
+		}
+		item.Author = author
 	}
 	// append extensions
 	if len(i.Extensions) > 0 {

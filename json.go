@@ -2,7 +2,9 @@ package gofeedx
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -196,8 +198,23 @@ func (ji *JSONItem) MarshalJSON() ([]byte, error) {
 }
 
 func newJSONItem(i *Item) *JSONItem {
+	// Ensure id is non-empty per JSON Feed spec
+	id := i.ID
+	link := i.Link
+	if id == "" {
+		if link != nil && link.Href != "" && (!i.Created.IsZero() || !i.Updated.IsZero()) {
+			dateStr := anyTimeFormat("2006-01-02", i.Updated, i.Created)
+			host, path := link.Href, "/"
+			if u, err := url.Parse(link.Href); err == nil {
+				host, path = u.Host, u.Path
+			}
+			id = fmt.Sprintf("tag:%s,%s:%s", host, dateStr, path)
+		} else {
+			id = "urn:uuid:" + MustUUIDv4().String()
+		}
+	}
 	item := &JSONItem{
-		Id:          i.ID,
+		Id:          id,
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present

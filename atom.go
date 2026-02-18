@@ -130,6 +130,21 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		feed.Entries = append(feed.Entries, newAtomEntry(e))
 	}
 
+	// Ensure Atom author requirement (RFC 4287 4.2.1):
+	// A feed must contain an author, unless all entries contain an author.
+	if feed.Author == nil {
+		allEntriesHaveAuthors := true
+		for _, it := range a.Items {
+			if it.Author == nil || (it.Author.Name == "" && it.Author.Email == "") {
+				allEntriesHaveAuthors = false
+				break
+			}
+		}
+		if !allEntriesHaveAuthors {
+			feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: "unknown"}}
+		}
+	}
+
 	// Custom channel/feed extensions
 	if len(a.Extensions) > 0 {
 		feed.Extra = append(feed.Extra, a.Extensions...)
