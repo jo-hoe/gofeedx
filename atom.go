@@ -127,7 +127,7 @@ func (a *Atom) AtomFeed() *AtomFeed {
 	feed := &AtomFeed{
 		Xmlns:    atomNS,
 		Title:    a.Title,
-		Link:     &AtomLink{Href: link.Href, Rel: firstNonEmpty(link.Rel, "alternate"), Type: link.Type, Length: link.Length},
+		Link:     &AtomLink{Href: link.Href, Rel: "alternate"},
 		Subtitle: a.Description,
 		Id:       firstNonEmpty(a.ID, link.Href),
 		Updated:  updated,
@@ -204,10 +204,10 @@ func newAtomEntry(i *Item) *AtomEntry {
 		name, email = i.Author.Name, i.Author.Email
 	}
 
-	linkRel := firstNonEmpty(link.Rel, "alternate")
+	linkRel := "alternate"
 	x := &AtomEntry{
 		Title:   i.Title,
-		Links:   []AtomLink{{Href: link.Href, Rel: linkRel, Type: link.Type, Length: link.Length}},
+		Links:   []AtomLink{{Href: link.Href, Rel: linkRel}},
 		Id:      id,
 		Updated: anyTimeFormat(time.RFC3339, i.Updated, i.Created),
 	}
@@ -233,7 +233,7 @@ func newAtomEntry(i *Item) *AtomEntry {
 
 	// Related/source link if provided
 	if i.Source != nil && i.Source.Href != "" {
-		x.Links = append(x.Links, AtomLink{Href: i.Source.Href, Rel: "related", Type: i.Source.Type, Length: i.Source.Length})
+		x.Links = append(x.Links, AtomLink{Href: i.Source.Href, Rel: "related"})
 	}
 
 	if len(name) > 0 || len(email) > 0 {

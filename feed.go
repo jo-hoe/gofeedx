@@ -5,12 +5,10 @@ import (
 	"time"
 )
 
-// Link represents a related link with optional rel/type/length metadata.
+// Link represents a related link (generic).
+// Only Href is retained as it is used by multiple targets (JSON/RSS/PSP/Atom).
 type Link struct {
-	Href   string
-	Rel    string
-	Type   string
-	Length string
+	Href string
 }
 
 // Author represents a person with a name and optional email.
@@ -19,21 +17,19 @@ type Author struct {
 	Email string
 }
 
-// Category represents a generic hierarchical category (e.g., for feeds).
-// PSP maps all Categories to itunes:category (including nested subcategories).
-// Atom/RSS writers will use only the first top-level category when present.
+// Category represents a generic top-level category.
+// Atom/RSS writers use only the first top-level category.
+// PSP maps categories to itunes:category (single level).
 type Category struct {
 	Text string
-	Sub  []*Category
 }
 
 // Image represents a channel-level image.
+// Width/Height are omitted from generic fields as they are only used by RSS.
 type Image struct {
-	Url    string
-	Title  string
-	Link   string
-	Width  int
-	Height int
+	Url   string
+	Title string
+	Link  string
 }
 
 // Enclosure represents a media attachment for an item.
@@ -52,7 +48,7 @@ type Item struct {
 	Author      *Author
 	Description string // description in RSS, summary in Atom, summary in JSON
 	ID          string // guid in RSS, id in Atom/JSON
-	IsPermaLink string // optional parameter for guid in RSS
+	IsPermaLink string // optional parameter for guid in RSS/PSP
 	Updated     time.Time
 	Created     time.Time
 	Enclosure   *Enclosure
@@ -61,15 +57,8 @@ type Item struct {
 	// Extensions holds arbitrary extension nodes to append in item/entry scope (RSS/PSP/Atom) and to be flattened for JSON.
 	Extensions []ExtensionNode
 
-	// PSP item fields (optional)
-	DurationSeconds int
-	ItunesImageHref       string
-	ItunesExplicit        *bool
-	ItunesEpisode         *int
-	ItunesSeason          *int
-	ItunesEpisodeType     string // "full", "trailer", "bonus"
-	ItunesBlock           bool
-	Transcripts           []PSPTranscript
+	// Generic item fields used by multiple targets
+	DurationSeconds int // used by JSON (attachments) and PSP (itunes:duration)
 }
 
 // Feed represents a feed/channel across formats.
@@ -81,7 +70,6 @@ type Feed struct {
 	Updated     time.Time
 	Created     time.Time
 	ID          string
-	Subtitle    string
 	Items       []*Item
 	Copyright   string
 	Image       *Image
@@ -90,17 +78,9 @@ type Feed struct {
 	// Extensions holds arbitrary extension nodes to append in channel/feed scope (RSS/PSP/Atom) and to be flattened for JSON.
 	Extensions []ExtensionNode
 
-	// PSP channel fields (optional)
-	FeedURL          string
-	ItunesImageHref  string
-	ItunesExplicit   *bool
-	ItunesType       string // "episodic" or "serial"
-	ItunesComplete   bool
-	Categories []*Category
-	PodcastLocked    *bool
-	PodcastGuidSeed  string
-	PodcastTXT       *PodcastTXT
-	PodcastFunding   *PodcastFunding
+	// Generic channel fields used by multiple targets
+	FeedURL    string        // used by JSON (feed_url) and PSP (atom:link rel=self)
+	Categories []*Category   // used by RSS/Atom/PSP
 }
 
 // Add appends a new item to the feed.
