@@ -117,79 +117,6 @@ func (f *Feed) WriteRSS(w io.Writer) error {
 	return WriteXML(&Rss{f}, w)
 }
 
-// ==========================
-// RSS encoder functional options (moved from rss_opts.go)
-// ==========================
-
-// rssConfig holds optional encoder-specific knobs for RSS output.
-type rssConfig struct {
-	ImageWidth       int
-	ImageHeight      int
-	TTL              int
-	CategoryOverride string
-}
-
-// RSSOption is a functional option to configure RSS encoding.
-type RSSOption func(*rssConfig)
-
-// WithRSSImageSize sets <image><width> and <image><height>.
-func WithRSSImageSize(width, height int) RSSOption {
-	return func(c *rssConfig) {
-		c.ImageWidth = width
-		c.ImageHeight = height
-	}
-}
-
-// WithRSSTTL sets the channel-level <ttl> in minutes.
-func WithRSSTTL(ttl int) RSSOption {
-	return func(c *rssConfig) { c.TTL = ttl }
-}
-
-// WithRSSChannelCategory overrides the single <category> string for the channel.
-func WithRSSChannelCategory(cat string) RSSOption {
-	return func(c *rssConfig) { c.CategoryOverride = cat }
-}
-
-/*
-ToRSSStringOpts creates an RSS 2.0 representation of this feed as a string,
-using optional encoder-specific options.
-*/
-func (f *Feed) ToRSSStringOpts(opts ...RSSOption) (string, error) {
-	cfg := &rssConfig{}
-	for _, o := range opts {
-		o(cfg)
-	}
-	channel := buildRssFeedWithOpts(f, cfg)
-	return ToXML(channel)
-}
-
-/*
-WriteRSSOpts writes an RSS 2.0 representation of this feed to the writer,
-using optional encoder-specific options.
-*/
-func (f *Feed) WriteRSSOpts(w io.Writer, opts ...RSSOption) error {
-	cfg := &rssConfig{}
-	for _, o := range opts {
-		o(cfg)
-	}
-	channel := buildRssFeedWithOpts(f, cfg)
-	return WriteXML(channel, w)
-}
-
-/*
-ToRSSFeedOpts returns the RSS 2.0 root struct for this feed,
-using optional encoder-specific options.
-*/
-func (f *Feed) ToRSSFeedOpts(opts ...RSSOption) (*RssFeedXml, error) {
-	cfg := &rssConfig{}
-	for _, o := range opts {
-		o(cfg)
-	}
-	channel := buildRssFeedWithOpts(f, cfg)
-	root, _ := channel.FeedXml().(*RssFeedXml)
-	return root, nil
-}
-
 // FeedXml returns an XML-Ready object for an Rss object.
 func (r *Rss) FeedXml() interface{} {
 	return r.RssFeed().FeedXml()
@@ -207,12 +134,47 @@ func (r *Rss) RssFeed() *RssFeed {
 		}
 	}
 
+	// Extract unified RSS builder markers from feed extensions
+	imgW, imgH := 0, 0
+	ttl := 0
+	catOverride := ""
+	var nonRSSExtras []ExtensionNode
+	for _, n := range r.Extensions {
+		switch n.Name {
+		case "_rss:imageSize":
+			if n.Attrs != nil {
+				if s, ok := n.Attrs["width"]; ok {
+					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
+						imgW = v
+					}
+				}
+				if s, ok := n.Attrs["height"]; ok {
+					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
+						imgH = v
+					}
+				}
+			}
+		case "_rss:ttl":
+			if t := strings.TrimSpace(n.Text); t != "" {
+				if v, err := strconv.Atoi(t); err == nil && v > 0 {
+					ttl = v
+				}
+			}
+		case "_rss:category":
+			catOverride = strings.TrimSpace(n.Text)
+		default:
+			nonRSSExtras = append(nonRSSExtras, n)
+		}
+	}
+
 	var image *RssImage
 	if r.Image != nil {
 		image = &RssImage{
 			Url:   r.Image.Url,
 			Title: r.Image.Title,
 			Link:  r.Image.Link,
+			Width: imgW,
+			Height: imgH,
 		}
 	}
 
@@ -230,10 +192,13 @@ func (r *Rss) RssFeed() *RssFeed {
 		Copyright:      r.Copyright,
 		Image:          image,
 		Language:       r.Language,
+		Ttl:            ttl,
 	}
 
-	// Map generic categories: RSS uses single category string; use first if present
-	if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
+	// Category override or generic mapping
+	if catOverride != "" {
+		channel.Category = catOverride
+	} else if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
 		channel.Category = r.Categories[0].Text
 	}
 
@@ -242,9 +207,9 @@ func (r *Rss) RssFeed() *RssFeed {
 		channel.Items = append(channel.Items, newRssItem(it))
 	}
 
-	// append extensions
-	if len(r.Extensions) > 0 {
-		channel.Extra = append(channel.Extra, r.Extensions...)
+	// append non-RSS builder extensions
+	if len(nonRSSExtras) > 0 {
+		channel.Extra = append(channel.Extra, nonRSSExtras...)
 	}
 	return channel
 }
@@ -265,64 +230,6 @@ scan:
 		Channel:          r,
 		ContentNamespace: contentNS,
 	}
-}
-
-func buildRssFeedWithOpts(r *Feed, cfg *rssConfig) *RssFeed {
-	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
-	build := anyTimeFormat(time.RFC1123Z, r.Updated)
-	author := ""
-	if r.Author != nil {
-		author = r.Author.Email
-		if len(r.Author.Name) > 0 {
-			author = fmt.Sprintf("%s (%s)", r.Author.Email, r.Author.Name)
-		}
-	}
-
-	var image *RssImage
-	if r.Image != nil {
-		image = &RssImage{
-			Url:    r.Image.Url,
-			Title:  r.Image.Title,
-			Link:   r.Image.Link,
-			Width:  cfg.ImageWidth,
-			Height: cfg.ImageHeight,
-		}
-	}
-
-	var href string
-	if r.Link != nil {
-		href = r.Link.Href
-	}
-	channel := &RssFeed{
-		Title:          r.Title,
-		Link:           href,
-		Description:    r.Description,
-		ManagingEditor: author,
-		PubDate:        pub,
-		LastBuildDate:  build,
-		Copyright:      r.Copyright,
-		Image:          image,
-		Language:       r.Language,
-		Ttl:            cfg.TTL,
-	}
-
-	// Category override or generic mapping
-	if cfg.CategoryOverride != "" {
-		channel.Category = cfg.CategoryOverride
-	} else if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
-		channel.Category = r.Categories[0].Text
-	}
-
-	// append items
-	for _, it := range r.Items {
-		channel.Items = append(channel.Items, newRssItem(it))
-	}
-
-	// append extensions
-	if len(r.Extensions) > 0 {
-		channel.Extra = append(channel.Extra, r.Extensions...)
-	}
-	return channel
 }
 
 func newRssItem(i *Item) *RssItem {
@@ -397,4 +304,43 @@ func (f *Feed) ValidateRSS() error {
 		}
 	}
 	return nil
+}
+
+/*
+Unified typed builders for RSS channel fields.
+
+Users can attach channel-level RSS fields via ExtOption without manually constructing nodes.
+These helpers store internal markers that the RSS encoder consumes to set canonical struct fields.
+This avoids stringly-typed public usage while keeping code colocated in rss.go.
+*/
+
+// RSSChannelFields holds channel-level RSS fields for unified builder.
+type RSSChannelFields struct {
+	ImageWidth  int
+	ImageHeight int
+	TTL         int
+	Category    string // overrides channel category
+}
+
+// WithRSSChannel returns an ExtOption to set RSS channel fields.
+// Internally stores markers consumed by the RSS encoder.
+func WithRSSChannel(fields RSSChannelFields) ExtOption {
+	var nodes []ExtensionNode
+	if fields.ImageWidth > 0 || fields.ImageHeight > 0 {
+		attrs := map[string]string{}
+		if fields.ImageWidth > 0 {
+			attrs["width"] = strconv.Itoa(fields.ImageWidth)
+		}
+		if fields.ImageHeight > 0 {
+			attrs["height"] = strconv.Itoa(fields.ImageHeight)
+		}
+		nodes = append(nodes, ExtensionNode{Name: "_rss:imageSize", Attrs: attrs})
+	}
+	if fields.TTL > 0 {
+		nodes = append(nodes, ExtensionNode{Name: "_rss:ttl", Text: strconv.Itoa(fields.TTL)})
+	}
+	if s := strings.TrimSpace(fields.Category); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "_rss:category", Text: s})
+	}
+	return newFeedNodes(nodes...)
 }

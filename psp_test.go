@@ -457,8 +457,8 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
-	xmlStr, err := feed.ToPSPRSSStringOpts(
-		gofeedx.WithPSPChannelExtras(gofeedx.PSPChannelExtras{
+	feed.ApplyExtensions(
+		gofeedx.WithPSPChannel(gofeedx.PSPChannelFields{
 			ItunesExplicit:  boolPtr(true),
 			ItunesType:      "serial",
 			ItunesComplete:  true,
@@ -471,6 +471,7 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 			PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
 		}),
 	)
+	xmlStr, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
 	}
@@ -523,8 +524,8 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
-	xmlStr, err := feed.ToPSPRSSStringOpts(
-		gofeedx.WithPSPItemExtrasByID("ep-1", gofeedx.PSPItemExtras{
+	item.ApplyExtensions(
+		gofeedx.WithPSPItem(gofeedx.PSPItemFields{
 			ItunesImageHref:   "https://example.com/ep1.jpg",
 			ItunesExplicit:    boolPtr(false),
 			ItunesEpisode:     intPtr(1),
@@ -534,6 +535,7 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 			Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
 		}),
 	)
+	xmlStr, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
 	}
