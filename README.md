@@ -2,12 +2,12 @@
 
 gofeedx is a small Go library for generating:
 
-- RSS 2.0
-- Atom 1.0
-- PSP-1: The Podcast RSS Standard (RSS 2.0 with itunes/podcast/atom namespaces)
-- JSON Feed 1.1
+- [RSS 2.0.1](https://www.rssboard.org/rss-2-0-1)
+- [Atom](https://datatracker.ietf.org/doc/html/rfc2026)
+- [PSP-1: The Podcast RSS Standard](https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification)
+- and [JSON Feed 1.1](https://jsonfeed.org/version/1.1/)
 
-It follows common Go patterns, uses only the standard library, and allows adding custom XML nodes (extensions) without extra dependencies.
+It follows common Go patterns, uses only the standard library, and allows adding custom nodes (extensions) without extra dependencies.
 
 ## Install
 
