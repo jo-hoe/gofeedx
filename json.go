@@ -163,6 +163,14 @@ func (f *JSON) JSONFeed() *JSONFeed {
 	if f.FeedURL != "" {
 		feed.FeedUrl = f.FeedURL
 	}
+	if f.Image != nil && f.Image.Url != "" {
+		if feed.Icon == "" {
+			feed.Icon = f.Image.Url
+		}
+		if feed.Favicon == "" {
+			feed.Favicon = f.Image.Url
+		}
+	}
 	if f.Author != nil {
 		author := &JSONAuthor{
 			Name: f.Author.Name,

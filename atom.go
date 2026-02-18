@@ -122,6 +122,16 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		Rights:   a.Copyright,
 	}
 
+	// Map generic image to Atom logo/icon when available
+	if a.Image != nil && a.Image.Url != "" {
+		if feed.Logo == "" {
+			feed.Logo = a.Image.Url
+		}
+		if feed.Icon == "" {
+			feed.Icon = a.Image.Url
+		}
+	}
+
 	if a.Author != nil {
 		feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: a.Author.Name, Email: a.Author.Email}}
 	}
