@@ -290,3 +290,68 @@ func TestRSSExtensionNodesAllowed(t *testing.T) {
 		t.Errorf("expected itunes:image extension in RSS item output")
 	}
 }
+
+func TestValidateRSS_Success(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "Desc",
+	}
+	f.Add(&gofeedx.Item{Title: "Item 1"})
+
+	if err := f.ValidateRSS(); err != nil {
+		t.Fatalf("ValidateRSS() unexpected error: %v", err)
+	}
+}
+
+func TestValidateRSS_ItemNeedsTitleOrDescription(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "Desc",
+	}
+	// Invalid: item without title and description
+	f.Add(&gofeedx.Item{})
+	err := f.ValidateRSS()
+	if err == nil || !strings.Contains(err.Error(), "must include a title or a description") {
+		t.Fatalf("ValidateRSS() expected title/description error, got: %v", err)
+	}
+}
+
+func TestValidateRSS_EnclosureValidation(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "Desc",
+	}
+	// Invalid enclosure: length <= 0
+	f.Add(&gofeedx.Item{
+		Title: "Item",
+		Enclosure: &gofeedx.Enclosure{
+			Url:    "https://cdn.example.org/x.mp3",
+			Type:   "audio/mpeg",
+			Length: 0,
+		},
+	})
+	err := f.ValidateRSS()
+	if err == nil || !strings.Contains(err.Error(), "enclosure url/type/length required") {
+		t.Fatalf("ValidateRSS() expected enclosure error, got: %v", err)
+	}
+}
+
+func TestValidateRSS_AuthorEmailRequired(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "Desc",
+	}
+	// Invalid RSS author: missing email
+	f.Add(&gofeedx.Item{
+		Title:  "Item",
+		Author: &gofeedx.Author{Name: "Alice", Email: ""},
+	})
+	err := f.ValidateRSS()
+	if err == nil || !strings.Contains(err.Error(), "author must be an email") {
+		t.Fatalf("ValidateRSS() expected author email error, got: %v", err)
+	}
+}

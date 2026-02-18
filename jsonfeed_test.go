@@ -301,3 +301,47 @@ func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateJSON_Success(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+	}
+	f.Add(&gofeedx.Item{
+		ID:    "item-1",
+		Title: "First",
+	})
+	if err := f.ValidateJSON(); err != nil {
+		t.Fatalf("ValidateJSON() unexpected error: %v", err)
+	}
+}
+
+func TestValidateJSON_MissingTitle(t *testing.T) {
+	f := &gofeedx.Feed{}
+	f.Add(&gofeedx.Item{ID: "x"})
+	err := f.ValidateJSON()
+	if err == nil || !strings.Contains(err.Error(), "feed title required") {
+		t.Fatalf("ValidateJSON() expected missing title error, got: %v", err)
+	}
+}
+
+func TestValidateJSON_NoItems(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+	}
+	err := f.ValidateJSON()
+	if err == nil || !strings.Contains(err.Error(), "at least one item required") {
+		t.Fatalf("ValidateJSON() expected at least one item error, got: %v", err)
+	}
+}
+
+func TestValidateJSON_ItemIdRequired(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+	}
+	// Invalid: empty item ID per spec
+	f.Add(&gofeedx.Item{Title: "x"})
+	err := f.ValidateJSON()
+	if err == nil || !strings.Contains(err.Error(), "item[0] id required") {
+		t.Fatalf("ValidateJSON() expected item id required error, got: %v", err)
+	}
+}

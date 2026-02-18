@@ -2,6 +2,7 @@ package gofeedx
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
@@ -308,4 +309,23 @@ func (f *Feed) WriteJSON(w io.Writer) error {
 	j := &JSON{f}
 	feed := j.JSONFeed()
 	return WriteJSON(feed, w)
+}
+
+// ValidateJSON enforces JSON Feed 1.1 essentials on the generic Feed.
+func (f *Feed) ValidateJSON() error {
+	// Top-level required: title (version is set by the writer), items must be present
+	if strings.TrimSpace(f.Title) == "" {
+		return errors.New("json: feed title required")
+	}
+	// Writer omits 'items' when empty due to omitempty; enforce at least one item to avoid invalid output
+	if len(f.Items) == 0 {
+		return errors.New("json: at least one item required")
+	}
+	// Item-level: id is required by spec
+	for i, it := range f.Items {
+		if strings.TrimSpace(it.ID) == "" {
+			return fmt.Errorf("json: item[%d] id required", i)
+		}
+	}
+	return nil
 }

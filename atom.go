@@ -2,9 +2,11 @@ package gofeedx
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -253,4 +255,45 @@ func firstNonEmpty(vals ...string) string {
 		}
 	}
 	return ""
+}
+
+// ValidateAtom enforces Atom 1.0 (RFC 4287) essentials on the generic Feed.
+func (f *Feed) ValidateAtom() error {
+	// Feed-level required: title, updated (from Updated or Created), id (from ID or Link.Href)
+	if strings.TrimSpace(f.Title) == "" {
+		return errors.New("atom: feed title required")
+	}
+	if f.Updated.IsZero() && f.Created.IsZero() {
+		return errors.New("atom: feed updated timestamp required (use Feed.Updated or Feed.Created)")
+	}
+	if strings.TrimSpace(f.ID) == "" && (f.Link == nil || strings.TrimSpace(f.Link.Href) == "") {
+		return errors.New("atom: feed id required (set Feed.ID or Link.Href)")
+	}
+	// At least one entry
+	if len(f.Items) == 0 {
+		return errors.New("atom: at least one entry required")
+	}
+	// Entry-level: title and updated (from Updated or Created)
+	for i, it := range f.Items {
+		if strings.TrimSpace(it.Title) == "" {
+			return fmt.Errorf("atom: entry[%d] title required", i)
+		}
+		if it.Updated.IsZero() && it.Created.IsZero() {
+			return fmt.Errorf("atom: entry[%d] updated timestamp required (use Item.Updated or Item.Created)", i)
+		}
+	}
+	// Author requirement (RFC 4287 4.2.1): feed must have author unless all entries have one
+	if f.Author == nil || (strings.TrimSpace(f.Author.Name) == "" && strings.TrimSpace(f.Author.Email) == "") {
+		allEntriesHaveAuthors := true
+		for _, it := range f.Items {
+			if it.Author == nil || (strings.TrimSpace(it.Author.Name) == "" && strings.TrimSpace(it.Author.Email) == "") {
+				allEntriesHaveAuthors = false
+				break
+			}
+		}
+		if !allEntriesHaveAuthors {
+			return errors.New("atom: feed must contain an author or all entries must contain an author (RFC 4287 4.2.1)")
+		}
+	}
+	return nil
 }

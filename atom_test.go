@@ -266,3 +266,75 @@ func TestAtomExtensionNodesAllowed(t *testing.T) {
 		t.Errorf("expected itunes:image extension in Atom item output")
 	}
 }
+
+func TestValidateAtom_Success(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:   "Atom Title",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: now, // satisfies updated timestamp requirement via Created
+		Author:  &gofeedx.Author{Name: "Feed Author"},
+	}
+	f.Add(&gofeedx.Item{
+		Title:   "Entry 1",
+		Created: now.Add(-time.Hour), // satisfies entry updated timestamp via Created
+	})
+
+	if err := f.ValidateAtom(); err != nil {
+		t.Fatalf("ValidateAtom() unexpected error: %v", err)
+	}
+}
+
+func TestValidateAtom_MissingUpdated(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title: "Atom Title",
+		Link:  &gofeedx.Link{Href: "https://example.org/"},
+		// Updated and Created are zero -> invalid
+		Author: &gofeedx.Author{Name: "Feed Author"},
+	}
+	f.Add(&gofeedx.Item{
+		Title:   "Entry 1",
+		Created: time.Now().UTC(),
+	})
+	err := f.ValidateAtom()
+	if err == nil || !strings.Contains(err.Error(), "updated timestamp required") {
+		t.Fatalf("ValidateAtom() expected missing updated timestamp error, got: %v", err)
+	}
+}
+
+func TestValidateAtom_MissingId(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:   "Atom Title",
+		Created: now,
+		// Missing ID and Link -> invalid
+		Author: &gofeedx.Author{Name: "Feed Author"},
+	}
+	f.Add(&gofeedx.Item{
+		Title:   "Entry 1",
+		Created: now,
+	})
+	err := f.ValidateAtom()
+	if err == nil || !strings.Contains(err.Error(), "feed id required") {
+		t.Fatalf("ValidateAtom() expected feed id required error, got: %v", err)
+	}
+}
+
+func TestValidateAtom_AuthorRequirement(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:   "Atom Title",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: now,
+		// No feed.Author
+	}
+	// Entry without author
+	f.Add(&gofeedx.Item{
+		Title:   "Entry 1",
+		Created: now,
+	})
+	err := f.ValidateAtom()
+	if err == nil || !strings.Contains(err.Error(), "must contain an author") {
+		t.Fatalf("ValidateAtom() expected author requirement error, got: %v", err)
+	}
+}

@@ -3,9 +3,11 @@ package gofeedx
 // RSS 2.0 encoder (with optional content:encoded for HTML content)
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -227,4 +229,39 @@ func newRssItem(i *Item) *RssItem {
 		item.Extra = append(item.Extra, i.Extensions...)
 	}
 	return item
+}
+
+// ValidateRSS enforces basic RSS 2.0.1 requirements on the generic Feed.
+func (f *Feed) ValidateRSS() error {
+	// Channel-level required fields per RSS 2.0.1
+	if strings.TrimSpace(f.Title) == "" {
+		return errors.New("rss: channel title required")
+	}
+	if f.Link == nil || strings.TrimSpace(f.Link.Href) == "" {
+		return errors.New("rss: channel link required")
+	}
+	if strings.TrimSpace(f.Description) == "" {
+		return errors.New("rss: channel description required")
+	}
+	// Items
+	if len(f.Items) == 0 {
+		return errors.New("rss: at least one item required")
+	}
+	for i, it := range f.Items {
+		// An item should have at least a title or a description
+		if strings.TrimSpace(it.Title) == "" && strings.TrimSpace(it.Description) == "" {
+			return fmt.Errorf("rss: item[%d] must include a title or a description", i)
+		}
+		// If enclosure present, ensure required attributes are valid
+		if it.Enclosure != nil {
+			if strings.TrimSpace(it.Enclosure.Url) == "" || strings.TrimSpace(it.Enclosure.Type) == "" || it.Enclosure.Length <= 0 {
+				return fmt.Errorf("rss: item[%d] enclosure url/type/length required when enclosure present", i)
+			}
+		}
+		// RSS 2.0 author should be an email address when present
+		if it.Author != nil && strings.TrimSpace(it.Author.Email) == "" {
+			return fmt.Errorf("rss: item[%d] author must be an email address", i)
+		}
+	}
+	return nil
 }
