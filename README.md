@@ -172,9 +172,9 @@ feed.Items[0].Extensions = append(feed.Items[0].Extensions, gofeedx.ExtensionNod
 
 ## Notes on namespaces
 
-- RSS 2.0: content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
+- RSS: content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
 - Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the <feed> root.
-- PSP RSS: used <https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification> as guideline.
+- PSP-1: namespaces for iTunes (<http://www.itunes.com/dtds/podcast-1.0.dtd>), podcast (<https://podcastindex.org/namespace/1.0>) and Atom are declared on the root <rss> element.
 
 ## IDs and dates
 
