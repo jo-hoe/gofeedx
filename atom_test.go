@@ -218,7 +218,7 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 
 	// Configure PSP-only fields
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.ItunesType = "serial"

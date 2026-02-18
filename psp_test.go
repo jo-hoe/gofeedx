@@ -116,7 +116,7 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	// Configure PSP channel fields directly on Feed
 	explicit := false
 	locked := true
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Author = &gofeedx.Author{Name: "My Podcast Team"}
@@ -131,7 +131,7 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
 
 	// Configure PSP item fields directly on Item
-	item.ItunesDurationSeconds = 1801
+	item.DurationSeconds = 1801
 	item.ItunesEpisodeType = "full"
 	item.Transcripts = []gofeedx.PSPTranscript{
 		{Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
@@ -234,11 +234,11 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	feed.Add(item)
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-	item.ItunesDurationSeconds = 10
+	item.DurationSeconds = 10
 
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("expected valid feed with HTML content, got error: %v", err)
@@ -275,7 +275,7 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 	})
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/art.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
@@ -329,7 +329,7 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 	feed.Add(item)
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -345,7 +345,7 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -373,7 +373,7 @@ func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
 
 	// Mark feed as serial but do not set itunes:episode on the item -> expect validation failure
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.ItunesType = "serial"
@@ -387,7 +387,7 @@ func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
 	// Now set the episode number and expect success
 	feedOK := newBaseFeed()
 	feedOK.Add(newBaseEpisode())
-	feedOK.AtomSelfHref = "https://example.com/podcast.rss"
+	feedOK.FeedURL = "https://example.com/podcast.rss"
 	feedOK.ItunesImageHref = "https://example.com/artwork.jpg"
 	feedOK.ItunesExplicit = &explicit
 	feedOK.ItunesType = "serial"
@@ -406,7 +406,7 @@ func TestPSPItunesCategoryStructure(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{
@@ -437,7 +437,7 @@ func TestPSPItunesExplicitBooleanValues(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	explicit := true
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -466,7 +466,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 
 	explicit := false
 	lockedTrue := true
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -486,7 +486,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 	// locked = false -> "no"
 	feed2 := newBaseFeed()
 	feed2.Add(newBaseEpisode())
-	feed2.AtomSelfHref = "https://example.com/podcast.rss"
+	feed2.FeedURL = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
 	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
@@ -511,7 +511,7 @@ func TestPSPPodcastFundingAndTXT(t *testing.T) {
 	feed.Add(item)
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -540,7 +540,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -560,7 +560,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	// invalid value should be omitted
 	feed2 := newBaseFeed()
 	feed2.Add(newBaseEpisode())
-	feed2.AtomSelfHref = "https://example.com/podcast.rss"
+	feed2.FeedURL = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
 	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
@@ -586,7 +586,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	feed.Add(item)
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
@@ -607,7 +607,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	item2 := newBaseEpisode()
 	item2.ItunesEpisodeType = "demo"
 	feed2.Add(item2)
-	feed2.AtomSelfHref = "https://example.com/podcast.rss"
+	feed2.FeedURL = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
 	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
@@ -637,7 +637,7 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	explicit := false
-	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})

@@ -234,7 +234,7 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	// Configure PSP-only fields that should not leak into plain RSS
 	explicit := true
 	locked := true
-	f.AtomSelfHref = "https://example.com/podcast.rss" // PSP adds atom:link rel=self
+	f.FeedURL = "https://example.com/podcast.rss" // PSP adds atom:link rel=self
 	f.ItunesImageHref = "https://example.com/artwork.jpg"
 	f.ItunesExplicit = &explicit
 	f.ItunesType = "episodic"
@@ -245,7 +245,7 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
 	f.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}
 
-	item.ItunesDurationSeconds = 42
+	item.DurationSeconds = 42
 	item.ItunesImageHref = "https://example.com/item.jpg"
 	item.ItunesExplicit = &explicit
 	ep := 1

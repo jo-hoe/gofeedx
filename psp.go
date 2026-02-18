@@ -309,7 +309,7 @@ func (f *Feed) ValidatePSP() error {
 	if strings.TrimSpace(f.ItunesImageHref) == "" {
 		return errors.New("psp: itunes:image (href) required")
 	}
-	if strings.TrimSpace(f.AtomSelfHref) == "" {
+	if strings.TrimSpace(f.FeedURL) == "" {
 		return errors.New("psp: atom:link rel=self required")
 	}
 	// Items
@@ -397,8 +397,8 @@ func (p *PSP) buildChannel() *PSPChannel {
 		LastBuildDate: build,
 	}
 	// atom:link rel="self"
-	if strings.TrimSpace(p.Feed.AtomSelfHref) != "" {
-		ch.AtomSelf = &PSPAtomLink{Href: p.Feed.AtomSelfHref, Rel: "self", Type: "application/rss+xml"}
+	if strings.TrimSpace(p.Feed.FeedURL) != "" {
+		ch.AtomSelf = &PSPAtomLink{Href: p.Feed.FeedURL, Rel: "self", Type: "application/rss+xml"}
 	}
 
 	// iTunes channel fields
@@ -477,8 +477,8 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 	}
 
 	// iTunes item fields
-	if it.ItunesDurationSeconds > 0 {
-		pi.ItunesDuration = fmt.Sprintf("%d", it.ItunesDurationSeconds)
+	if it.DurationSeconds > 0 {
+		pi.ItunesDuration = fmt.Sprintf("%d", it.DurationSeconds)
 	}
 	if it.ItunesImageHref != "" {
 		pi.ItunesImage = &ItunesImage{Href: it.ItunesImageHref}

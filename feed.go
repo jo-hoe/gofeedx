@@ -62,7 +62,7 @@ type Item struct {
 	Extensions []ExtensionNode
 
 	// PSP item fields (optional)
-	ItunesDurationSeconds int
+	DurationSeconds int
 	ItunesImageHref       string
 	ItunesExplicit        *bool
 	ItunesEpisode         *int
@@ -91,7 +91,7 @@ type Feed struct {
 	Extensions []ExtensionNode
 
 	// PSP channel fields (optional)
-	AtomSelfHref     string
+	FeedURL          string
 	ItunesImageHref  string
 	ItunesExplicit   *bool
 	ItunesType       string // "episodic" or "serial"
