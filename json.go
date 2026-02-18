@@ -72,7 +72,6 @@ type JSONItem struct {
 	BannerImage   string           `json:"banner_image,omitempty"`
 	PublishedDate *time.Time       `json:"date_published,omitempty"`
 	ModifiedDate  *time.Time       `json:"date_modified,omitempty"`
-	Author        *JSONAuthor      `json:"author,omitempty"`  // deprecated in v1.1, kept for compatibility
 	Authors       []*JSONAuthor    `json:"authors,omitempty"` // v1.1
 	Tags          []string         `json:"tags,omitempty"`
 	Attachments   []JSONAttachment `json:"attachments,omitempty"`
@@ -97,7 +96,6 @@ type JSONFeed struct {
 	NextUrl     string        `json:"next_url,omitempty"`
 	Icon        string        `json:"icon,omitempty"`
 	Favicon     string        `json:"favicon,omitempty"`
-	Author      *JSONAuthor   `json:"author,omitempty"`  // deprecated in v1.1, kept for compatibility
 	Authors     []*JSONAuthor `json:"authors,omitempty"` // v1.1
 	Expired     *bool         `json:"expired,omitempty"`
 	Hubs        []*JSONHub    `json:"hubs,omitempty"`
@@ -164,7 +162,6 @@ func (f *JSON) JSONFeed() *JSONFeed {
 		author := &JSONAuthor{
 			Name: f.Author.Name,
 		}
-		feed.Author = author
 		feed.Authors = []*JSONAuthor{author}
 	}
 	for _, e := range f.Items {
@@ -217,7 +214,6 @@ func newJSONItem(i *Item) *JSONItem {
 		author := &JSONAuthor{
 			Name: i.Author.Name,
 		}
-		item.Author = author
 		item.Authors = []*JSONAuthor{author}
 	}
 	if !i.Created.IsZero() {

@@ -3,6 +3,9 @@ package gofeedx
 // PSP-1: The Podcast RSS Standard encoder and builder
 // Emits RSS 2.0 with required namespaces, enforces required PSP elements,
 // and provides builder-style helpers.
+//
+// see https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification
+// and https://podcast-standard.org/podcast_standard/
 
 import (
 	"encoding/xml"
