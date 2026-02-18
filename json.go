@@ -47,24 +47,6 @@ func (a *JSONAttachment) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o)
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (a *JSONAttachment) UnmarshalJSON(data []byte) error {
-	type EmbeddedJSONAttachment JSONAttachment
-	var raw struct {
-		Duration float64 `json:"duration_in_seconds,omitempty"`
-		*EmbeddedJSONAttachment
-	}
-	raw.EmbeddedJSONAttachment = (*EmbeddedJSONAttachment)(a)
-	if err := json.Unmarshal(data, &raw); err != nil {
-		return err
-	}
-	if raw.Duration > 0 {
-		nsec := int64(raw.Duration * float64(time.Second))
-		raw.EmbeddedJSONAttachment.Duration = time.Duration(nsec)
-	}
-	return nil
-}
-
 // JSONItem represents a single entry/post for the feed.
 type JSONItem struct {
 	Id            string           `json:"id"`

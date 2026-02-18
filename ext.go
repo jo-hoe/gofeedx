@@ -50,12 +50,4 @@ func (it *Item) ApplyExtensions(opts ...ExtOption) {
 	}
 }
 
-// WithCustomFeed injects arbitrary custom nodes at feed/channel scope.
-func WithCustomFeed(nodes ...ExtensionNode) ExtOption {
-	return newFeedNodes(nodes...)
-}
 
-// WithCustomItem injects arbitrary custom nodes at item/entry scope.
-func WithCustomItem(nodes ...ExtensionNode) ExtOption {
-	return newItemNodes(nodes...)
-}

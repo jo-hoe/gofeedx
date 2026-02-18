@@ -107,10 +107,7 @@ type PSPChannel struct {
 
 	// iTunes channel fields
 	ItunesImage      *ItunesImage      `xml:"itunes:image,omitempty"`
-	ItunesExplicit   *ItunesExplicit   `xml:"itunes:explicit,omitempty"`
 	ItunesAuthor     string            `xml:"itunes:author,omitempty"`
-	ItunesType       string            `xml:"itunes:type,omitempty"`
-	ItunesComplete   *ItunesComplete   `xml:"itunes:complete,omitempty"`
 	ItunesCategories []*ItunesCategory `xml:"itunes:category,omitempty"`
 
 	// podcast namespace channel fields
@@ -140,17 +137,7 @@ type ItunesImage struct {
 	Href    string   `xml:"href,attr"`
 }
 
-// ItunesExplicit emits "true"/"false"
-type ItunesExplicit struct {
-	XMLName xml.Name `xml:"itunes:explicit"`
-	Value   string   `xml:",chardata"` // "true" or "false"
-}
 
-// ItunesComplete emits "yes"
-type ItunesComplete struct {
-	XMLName xml.Name `xml:"itunes:complete"`
-	Value   string   `xml:",chardata"` // "yes"
-}
 
 // ItunesCategory supports nesting
 type ItunesCategory struct {
@@ -230,25 +217,12 @@ type PSPItem struct {
 
 	// iTunes item fields
 	ItunesDuration    string          `xml:"itunes:duration,omitempty"` // seconds
-	ItunesImage       *ItunesImage    `xml:"itunes:image,omitempty"`
-	ItunesExplicit    *ItunesExplicit `xml:"itunes:explicit,omitempty"`
-	ItunesEpisode     *int            `xml:"itunes:episode,omitempty"`
-	ItunesSeason      *int            `xml:"itunes:season,omitempty"`
-	ItunesEpisodeType string          `xml:"itunes:episodeType,omitempty"` // "full", "trailer", "bonus"
-	ItunesBlock       *ItunesBlock    `xml:"itunes:block,omitempty"`
 
-	// podcast namespace item fields
-	Transcripts []PSPTranscript `xml:"podcast:transcript,omitempty"`
 
 	// Extra custom nodes
 	Extra []ExtensionNode `xml:",any"`
 }
 
-// ItunesBlock emits "yes"
-type ItunesBlock struct {
-	XMLName xml.Name `xml:"itunes:block"`
-	Value   string   `xml:",chardata"` // "yes"
-}
 
 /*
 Unified PSP-1 handling: configure podcast fields directly on Feed and Item,

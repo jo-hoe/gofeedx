@@ -80,7 +80,6 @@ Use one consistent mechanism to set additional attributes and namespaced nodes:
 - Provided builders:
   - PSP/iTunes/Podcasting 2.0: `WithPSPChannel`, `WithPSPItem`
   - RSS channel-only fields: `WithRSSChannel`
-  - Custom nodes: `WithCustomFeed`, `WithCustomItem`
 
 See examples below.
 
