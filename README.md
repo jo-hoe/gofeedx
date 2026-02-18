@@ -56,22 +56,22 @@ func main() {
  feed.Add(item)
 
  // RSS 2.0.1
- rss, _ := feed.ToRSS()
+ rss, _ := feed.ToRSSString()
  fmt.Println(rss)
 
  // Atom 1.0
- atom, _ := feed.ToAtom()
+ atom, _ := feed.ToAtomString()
  fmt.Println(atom)
 
  // JSON Feed 1.1
- jsonStr, _ := feed.ToJSON()
+ jsonStr, _ := feed.ToJSONString()
  fmt.Println(jsonStr)
 }
 ```
 
 ## PSP-1 (Podcast) feed
 
-PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Configure podcast/iTunes fields directly on Feed and Item, then call ToPSPRSS() to render a compliant PSP-1 feed.
+PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Use the generic fields on Feed and Item; the PSP encoder will emit the required iTunes and podcast:* elements.
 
 ```go
 package main
@@ -105,40 +105,21 @@ func main() {
   }
   feed.Add(item)
 
-  // Channel-level PSP/iTunes/podcast settings
-  explicit := false
-  locked := true
-  feed.AtomSelfHref = "https://example.com/podcast.rss"
-  feed.ItunesImageHref = "https://example.com/artwork.jpg"
-  feed.ItunesExplicit = &explicit
-  feed.ItunesAuthor = "My Podcast Team"
-  feed.ItunesType = "episodic"
-  feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
-    Text: "Technology",
-    Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
-  })
-  feed.PodcastLocked = &locked
-  feed.PodcastGuidSeed = "https://example.com/podcast.rss" // used to derive podcast:guid via UUIDv5
-  feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support"}
-  feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
+  // Channel-level PSP/iTunes/podcast essentials derived from generic fields
+  feed.FeedURL = "https://example.com/podcast.rss" // atom:link rel=self
+  feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"} // itunes:image
+  feed.Author = &gofeedx.Author{Name: "My Podcast Team"}              // itunes:author
+  feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"}) // itunes:category
 
-  // Item-level PSP/iTunes extras
-  item.ItunesDurationSeconds = 1801
-  item.ItunesEpisode = intPtr(1)
-  item.ItunesSeason = intPtr(1)
-  item.ItunesEpisodeType = "full"
-  item.Transcripts = []gofeedx.PSPTranscript{
-    {Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
-  }
+  // Item-level duration (maps to itunes:duration)
+  item.DurationSeconds = 1801
 
   if err := feed.ValidatePSP(); err != nil {
     panic(err)
   }
-  xml, _ := feed.ToPSPRSS()
+  xml, _ := feed.ToPSPRSSString()
   fmt.Println(xml)
 }
-
-func intPtr(i int) *int { return &i }
 ```
 
 ## Adding custom XML nodes (extensions)
@@ -169,6 +150,39 @@ feed.Items[0].Extensions = append(feed.Items[0].Extensions, gofeedx.ExtensionNod
   },
 })
 ```
+
+## Target-specific fields: idiomatic patterns
+
+You can keep using the generic Feed/Item structs while supplying format-specific details in two idiomatic ways:
+
+1) Functional options for RSS-only fields (encoder-time)
+Use options with the Opts variants to set fields like image width/height and TTL that exist only in RSS:
+```go
+rssXML, _ := feed.ToRSSStringOpts(
+  gofeedx.WithRSSImageSize(1400, 1400),
+  gofeedx.WithRSSTTL(60),
+  gofeedx.WithRSSChannelCategory("Technology"),
+)
+```
+
+2) Namespaced extensions (plain RSS) or PSP encoder (iTunes/podcast)
+- For plain RSS, you can inject namespaced elements via ExtensionNode at channel or item scope:
+```go
+// Channel-level custom node (e.g., itunes:owner)
+gofeedx.AppendFeedExtensions(feed, gofeedx.ExtensionNode{
+  Name: "itunes:owner",
+  Children: []gofeedx.ExtensionNode{
+    {Name: "itunes:name", Text: "Alice Example"},
+    {Name: "itunes:email", Text: "podcast@example.com"},
+  },
+})
+// Item-level custom node (e.g., itunes:image)
+gofeedx.AppendItemExtensions(item, gofeedx.ExtensionNode{
+  Name:  "itunes:image",
+  Attrs: map[string]string{"href": "https://example.com/cover.jpg"},
+})
+```
+- For podcast feeds, prefer the PSP encoder (ToPSPRSSString/Feed) which emits required iTunes and podcast:* elements and enforces PSP-1. Use generic fields (FeedURL, Image.Url, Author, Categories, DurationSeconds, etc.) and/or attach additional PSP elements using ExtensionNode.
 
 ## Notes on namespaces
 

@@ -110,9 +110,84 @@ func (f *Feed) ToRSSFeed() (*RssFeedXml, error) {
 	return root, nil
 }
 
-// WriteRSS writes an RSS 2.0 representation of this feed to the writer.
+/*
+WriteRSS writes an RSS 2.0 representation of this feed to the writer.
+*/
 func (f *Feed) WriteRSS(w io.Writer) error {
 	return WriteXML(&Rss{f}, w)
+}
+
+// ==========================
+// RSS encoder functional options (moved from rss_opts.go)
+// ==========================
+
+// rssConfig holds optional encoder-specific knobs for RSS output.
+type rssConfig struct {
+	ImageWidth       int
+	ImageHeight      int
+	TTL              int
+	CategoryOverride string
+}
+
+// RSSOption is a functional option to configure RSS encoding.
+type RSSOption func(*rssConfig)
+
+// WithRSSImageSize sets <image><width> and <image><height>.
+func WithRSSImageSize(width, height int) RSSOption {
+	return func(c *rssConfig) {
+		c.ImageWidth = width
+		c.ImageHeight = height
+	}
+}
+
+// WithRSSTTL sets the channel-level <ttl> in minutes.
+func WithRSSTTL(ttl int) RSSOption {
+	return func(c *rssConfig) { c.TTL = ttl }
+}
+
+// WithRSSChannelCategory overrides the single <category> string for the channel.
+func WithRSSChannelCategory(cat string) RSSOption {
+	return func(c *rssConfig) { c.CategoryOverride = cat }
+}
+
+/*
+ToRSSStringOpts creates an RSS 2.0 representation of this feed as a string,
+using optional encoder-specific options.
+*/
+func (f *Feed) ToRSSStringOpts(opts ...RSSOption) (string, error) {
+	cfg := &rssConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	channel := buildRssFeedWithOpts(f, cfg)
+	return ToXML(channel)
+}
+
+/*
+WriteRSSOpts writes an RSS 2.0 representation of this feed to the writer,
+using optional encoder-specific options.
+*/
+func (f *Feed) WriteRSSOpts(w io.Writer, opts ...RSSOption) error {
+	cfg := &rssConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	channel := buildRssFeedWithOpts(f, cfg)
+	return WriteXML(channel, w)
+}
+
+/*
+ToRSSFeedOpts returns the RSS 2.0 root struct for this feed,
+using optional encoder-specific options.
+*/
+func (f *Feed) ToRSSFeedOpts(opts ...RSSOption) (*RssFeedXml, error) {
+	cfg := &rssConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	channel := buildRssFeedWithOpts(f, cfg)
+	root, _ := channel.FeedXml().(*RssFeedXml)
+	return root, nil
 }
 
 // FeedXml returns an XML-Ready object for an Rss object.
@@ -190,6 +265,64 @@ scan:
 		Channel:          r,
 		ContentNamespace: contentNS,
 	}
+}
+
+func buildRssFeedWithOpts(r *Feed, cfg *rssConfig) *RssFeed {
+	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
+	build := anyTimeFormat(time.RFC1123Z, r.Updated)
+	author := ""
+	if r.Author != nil {
+		author = r.Author.Email
+		if len(r.Author.Name) > 0 {
+			author = fmt.Sprintf("%s (%s)", r.Author.Email, r.Author.Name)
+		}
+	}
+
+	var image *RssImage
+	if r.Image != nil {
+		image = &RssImage{
+			Url:    r.Image.Url,
+			Title:  r.Image.Title,
+			Link:   r.Image.Link,
+			Width:  cfg.ImageWidth,
+			Height: cfg.ImageHeight,
+		}
+	}
+
+	var href string
+	if r.Link != nil {
+		href = r.Link.Href
+	}
+	channel := &RssFeed{
+		Title:          r.Title,
+		Link:           href,
+		Description:    r.Description,
+		ManagingEditor: author,
+		PubDate:        pub,
+		LastBuildDate:  build,
+		Copyright:      r.Copyright,
+		Image:          image,
+		Language:       r.Language,
+		Ttl:            cfg.TTL,
+	}
+
+	// Category override or generic mapping
+	if cfg.CategoryOverride != "" {
+		channel.Category = cfg.CategoryOverride
+	} else if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
+		channel.Category = r.Categories[0].Text
+	}
+
+	// append items
+	for _, it := range r.Items {
+		channel.Items = append(channel.Items, newRssItem(it))
+	}
+
+	// append extensions
+	if len(r.Extensions) > 0 {
+		channel.Extra = append(channel.Extra, r.Extensions...)
+	}
+	return channel
 }
 
 func newRssItem(i *Item) *RssItem {
