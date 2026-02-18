@@ -99,7 +99,6 @@ type Feed struct {
 	Categories []*Category
 	PodcastLocked    *bool
 	PodcastGuidSeed  string
-	PodcastGuid      string
 	PodcastTXT       *PodcastTXT
 	PodcastFunding   *PodcastFunding
 }

@@ -241,7 +241,6 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	f.ItunesComplete = true
 	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
 	f.PodcastLocked = &locked
-	f.PodcastGuid = "a-guid"
 	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
 	f.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}
 

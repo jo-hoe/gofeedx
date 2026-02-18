@@ -428,10 +428,13 @@ func (p *PSP) buildChannel() *PSPChannel {
 			ch.PodcastLocked = &PodcastLocked{Value: "no"}
 		}
 	}
-	if p.Feed.PodcastGuid != "" {
-		ch.PodcastGuid = p.Feed.PodcastGuid
-	} else if p.Feed.PodcastGuidSeed != "" {
+	if strings.TrimSpace(p.Feed.ID) != "" {
+		// Treat Feed.ID as the authoritative podcast GUID when provided
+		ch.PodcastGuid = p.Feed.ID
+	} else if strings.TrimSpace(p.Feed.PodcastGuidSeed) != "" {
 		ch.PodcastGuid = computePodcastGuid(p.Feed.PodcastGuidSeed)
+	} else if strings.TrimSpace(p.Feed.FeedURL) != "" {
+		ch.PodcastGuid = computePodcastGuid(p.Feed.FeedURL)
 	}
 	if p.Feed.PodcastTXT != nil {
 		ch.PodcastTXT = p.Feed.PodcastTXT
