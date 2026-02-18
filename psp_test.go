@@ -437,3 +437,127 @@ func TestPSPExtensionsAllowed(t *testing.T) {
 		t.Errorf("expected itunes:image extension in PSP item output")
 	}
 }
+
+// helpers for pointer literals in tests
+func boolPtr(b bool) *bool { return &b }
+func intPtr(i int) *int    { return &i }
+
+// Test that PSP builder-style channel extras are applied.
+func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	feed.Add(item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Author = &gofeedx.Author{Name: "My Podcast Team"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Original"})
+
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
+	}
+
+	xmlStr, err := feed.ToPSPRSSStringOpts(
+		gofeedx.WithPSPChannelExtras(gofeedx.PSPChannelExtras{
+			ItunesExplicit:  boolPtr(true),
+			ItunesType:      "serial",
+			ItunesComplete:  true,
+			ItunesAuthor:    "Override Author",
+			ItunesImageHref: "https://example.com/cover.png",
+			Categories:      []string{"Technology", "News"},
+			PodcastLocked:   boolPtr(true),
+			PodcastGuid:     "custom-guid-123",
+			PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
+			PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
+	}
+
+	// Channel-level assertions
+	if !strings.Contains(xmlStr, "<itunes:explicit>true</itunes:explicit>") {
+		t.Errorf("expected itunes:explicit=true in channel")
+	}
+	if !strings.Contains(xmlStr, "<itunes:type>serial</itunes:type>") {
+		t.Errorf("expected itunes:type=serial in channel")
+	}
+	if !strings.Contains(xmlStr, "<itunes:complete>yes</itunes:complete>") {
+		t.Errorf("expected itunes:complete=yes in channel")
+	}
+	if !strings.Contains(xmlStr, "<itunes:author>Override Author</itunes:author>") {
+		t.Errorf("expected overridden itunes:author in channel")
+	}
+	if !strings.Contains(xmlStr, `<itunes:image`) || !strings.Contains(xmlStr, `href="https://example.com/cover.png"`) {
+		t.Errorf("expected overridden itunes:image href in channel")
+	}
+	if !strings.Contains(xmlStr, `itunes:category text="Technology"`) || !strings.Contains(xmlStr, `itunes:category text="News"`) {
+		t.Errorf("expected overridden itunes:category elements in channel")
+	}
+	if !strings.Contains(xmlStr, "<podcast:locked>yes</podcast:locked>") {
+		t.Errorf("expected podcast:locked=yes in channel")
+	}
+	if !strings.Contains(xmlStr, "<podcast:guid>custom-guid-123</podcast:guid>") {
+		t.Errorf("expected overridden podcast:guid in channel")
+	}
+	if !strings.Contains(xmlStr, `<podcast:txt`) || !strings.Contains(xmlStr, `purpose="verify"`) || !strings.Contains(xmlStr, ">ownership-token<") {
+		t.Errorf("expected podcast:txt with purpose and value in channel")
+	}
+	if !strings.Contains(xmlStr, `<podcast:funding`) || !strings.Contains(xmlStr, `url="https://example.com/support"`) || !strings.Contains(xmlStr, ">Support Us<") {
+		t.Errorf("expected podcast:funding with url and label in channel")
+	}
+}
+
+// Test that PSP builder-style item extras are applied by ID.
+func TestPSPBuilderItemExtrasApplied(t *testing.T) {
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	item.ID = "ep-1"
+	feed.Add(item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
+	}
+
+	xmlStr, err := feed.ToPSPRSSStringOpts(
+		gofeedx.WithPSPItemExtrasByID("ep-1", gofeedx.PSPItemExtras{
+			ItunesImageHref:   "https://example.com/ep1.jpg",
+			ItunesExplicit:    boolPtr(false),
+			ItunesEpisode:     intPtr(1),
+			ItunesSeason:      intPtr(1),
+			ItunesEpisodeType: "full",
+			ItunesBlock:       true,
+			Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
+		}),
+	)
+	if err != nil {
+		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
+	}
+
+	// Item-level assertions
+	if !strings.Contains(xmlStr, `<itunes:image`) || !strings.Contains(xmlStr, `href="https://example.com/ep1.jpg"`) {
+		t.Errorf("expected itunes:image item override")
+	}
+	if !strings.Contains(xmlStr, "<itunes:explicit>false</itunes:explicit>") {
+		t.Errorf("expected itunes:explicit=false on item")
+	}
+	if !strings.Contains(xmlStr, "<itunes:episode>1</itunes:episode>") {
+		t.Errorf("expected itunes:episode on item")
+	}
+	if !strings.Contains(xmlStr, "<itunes:season>1</itunes:season>") {
+		t.Errorf("expected itunes:season on item")
+	}
+	if !strings.Contains(xmlStr, "<itunes:episodeType>full</itunes:episodeType>") {
+		t.Errorf("expected itunes:episodeType on item")
+	}
+	if !strings.Contains(xmlStr, "<itunes:block>yes</itunes:block>") {
+		t.Errorf("expected itunes:block=yes on item")
+	}
+	if !strings.Contains(xmlStr, `<podcast:transcript`) || !strings.Contains(xmlStr, `url="https://example.com/ep1.vtt"`) || !strings.Contains(xmlStr, `type="text/vtt"`) {
+		t.Errorf("expected podcast:transcript on item")
+	}
+}

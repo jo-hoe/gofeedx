@@ -290,6 +290,133 @@ func (f *Feed) WritePSPRSS(w io.Writer) error {
 	return WriteXML(&PSP{f}, w)
 }
 
+// ==========================
+// PSP encoder functional options (builder-style convenience)
+// ==========================
+
+// PSPChannelExtras holds channel-level fields that are not available in feed.go
+// and must be configured at PSP rendering time.
+type PSPChannelExtras struct {
+	// iTunes fields
+	ItunesExplicit  *bool  // "true" or "false"
+	ItunesType      string // "episodic" | "serial"
+	ItunesComplete  bool   // "yes" when true
+	ItunesImageHref string // overrides image href derived from Feed.Image.Url
+	ItunesAuthor    string // overrides author derived from Feed.Author.Name
+	Categories      []string
+
+	// podcast namespace
+	PodcastLocked  *bool
+	PodcastGuid    string
+	PodcastTXT     *PodcastTXT
+	PodcastFunding *PodcastFunding
+}
+
+// PSPItemExtras holds item-level fields not represented in feed.go.
+type PSPItemExtras struct {
+	// iTunes item fields
+	ItunesImageHref   string
+	ItunesExplicit    *bool
+	ItunesEpisode     *int
+	ItunesSeason      *int
+	ItunesEpisodeType string // "full" | "trailer" | "bonus"
+	ItunesBlock       bool   // "yes" when true
+
+	// podcast item fields
+	Transcripts []PSPTranscript
+}
+
+type pspConfig struct {
+	Channel  PSPChannelExtras
+	ItemByID map[string]PSPItemExtras
+	ItemByPtr map[*Item]PSPItemExtras
+}
+
+// PSPOption configures PSP encoding.
+type PSPOption func(*pspConfig)
+
+// WithPSPChannelExtras applies channel-level PSP/iTunes/podcast fields.
+func WithPSPChannelExtras(ex PSPChannelExtras) PSPOption {
+	return func(c *pspConfig) {
+		c.Channel = mergePSPChannelExtras(c.Channel, ex)
+	}
+}
+
+// WithPSPItemExtrasByID attaches item-level extras by Item.ID.
+func WithPSPItemExtrasByID(id string, ex PSPItemExtras) PSPOption {
+	return func(c *pspConfig) {
+		if c.ItemByID == nil {
+			c.ItemByID = make(map[string]PSPItemExtras)
+		}
+		c.ItemByID[id] = mergePSPItemExtras(c.ItemByID[id], ex)
+	}
+}
+
+// WithPSPItemExtras attaches item-level extras by Item pointer.
+func WithPSPItemExtras(it *Item, ex PSPItemExtras) PSPOption {
+	return func(c *pspConfig) {
+		if c.ItemByPtr == nil {
+			c.ItemByPtr = make(map[*Item]PSPItemExtras)
+		}
+		c.ItemByPtr[it] = mergePSPItemExtras(c.ItemByPtr[it], ex)
+	}
+}
+
+// Opts-capable wrapper so we can reuse ToXML/WriteXML helpers.
+type pspWrapperOpts struct {
+	*Feed
+	cfg *pspConfig
+}
+
+func (p *pspWrapperOpts) FeedXml() interface{} {
+	pp := &PSP{p.Feed}
+	return pp.wrapRoot(pp.buildChannelWithOpts(p.cfg))
+}
+
+/*
+ToPSPRSSStringOpts creates a PSP-1 RSS representation using builder-style options.
+*/
+func (f *Feed) ToPSPRSSStringOpts(opts ...PSPOption) (string, error) {
+	if err := f.ValidatePSP(); err != nil {
+		return "", err
+	}
+	cfg := &pspConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	return ToXML(&pspWrapperOpts{Feed: f, cfg: cfg})
+}
+
+/*
+ToPSPRSSFeedOpts returns the PSP-1 RSS root struct using builder-style options.
+*/
+func (f *Feed) ToPSPRSSFeedOpts(opts ...PSPOption) (*PSPRSSRoot, error) {
+	if err := f.ValidatePSP(); err != nil {
+		return nil, err
+	}
+	cfg := &pspConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	w := &pspWrapperOpts{Feed: f, cfg: cfg}
+	root, _ := w.FeedXml().(*PSPRSSRoot)
+	return root, nil
+}
+
+/*
+WritePSPRSSOpts writes PSP-1 RSS using builder-style options.
+*/
+func (f *Feed) WritePSPRSSOpts(w io.Writer, opts ...PSPOption) error {
+	if err := f.ValidatePSP(); err != nil {
+		return err
+	}
+	cfg := &pspConfig{}
+	for _, o := range opts {
+		o(cfg)
+	}
+	return WriteXML(&pspWrapperOpts{Feed: f, cfg: cfg}, w)
+}
+
 // FeedXml returns an XML-Ready object for a PSP wrapper.
 func (p *PSP) FeedXml() interface{} {
 	return p.wrapRoot(p.buildChannel())
@@ -417,6 +544,199 @@ func (p *PSP) buildChannel() *PSPChannel {
 		ch.Extra = append(ch.Extra, p.Extensions...)
 	}
 	return ch
+}
+
+// buildChannelWithOpts builds channel as buildChannel() and applies PSP options.
+func (p *PSP) buildChannelWithOpts(cfg *pspConfig) *PSPChannel {
+	ch := p.buildChannel()
+	if cfg == nil {
+		// No overrides
+		return ch
+	}
+	// Channel-level overrides
+	ce := cfg.Channel
+	// iTunes image
+	if strings.TrimSpace(ce.ItunesImageHref) != "" {
+		ch.ItunesImage = &ItunesImage{Href: ce.ItunesImageHref}
+	}
+	// iTunes author
+	if strings.TrimSpace(ce.ItunesAuthor) != "" {
+		ch.ItunesAuthor = ce.ItunesAuthor
+	}
+	// iTunes explicit
+	if ce.ItunesExplicit != nil {
+		val := "false"
+		if *ce.ItunesExplicit {
+			val = "true"
+		}
+		ch.ItunesExplicit = &ItunesExplicit{Value: val}
+	}
+	// iTunes type
+	if strings.TrimSpace(ce.ItunesType) != "" {
+		ch.ItunesType = ce.ItunesType
+	}
+	// iTunes complete
+	if ce.ItunesComplete {
+		ch.ItunesComplete = &ItunesComplete{Value: "yes"}
+	}
+	// Categories override
+	if len(ce.Categories) > 0 {
+		ch.ItunesCategories = convertCategoryStrings(ce.Categories)
+	}
+	// podcast:locked
+	if ce.PodcastLocked != nil {
+		val := "no"
+		if *ce.PodcastLocked {
+			val = "yes"
+		}
+		ch.PodcastLocked = &PodcastLocked{Value: val}
+	}
+	// podcast:guid
+	if strings.TrimSpace(ce.PodcastGuid) != "" {
+		ch.PodcastGuid = ce.PodcastGuid
+	}
+	// podcast:txt
+	if ce.PodcastTXT != nil {
+		ch.PodcastTXT = ce.PodcastTXT
+	}
+	// podcast:funding
+	if ce.PodcastFunding != nil {
+		ch.PodcastFunding = ce.PodcastFunding
+	}
+
+	// Item-level overrides
+	for idx, it := range p.Items {
+		pi := ch.Items[idx]
+		if ex, ok := cfg.itemExtrasFor(it); ok {
+			applyItemExtras(pi, ex)
+		}
+	}
+	return ch
+}
+
+// applyItemExtras mutates PSPItem with provided extras.
+func applyItemExtras(pi *PSPItem, ex PSPItemExtras) {
+	if pi == nil {
+		return
+	}
+	if strings.TrimSpace(ex.ItunesImageHref) != "" {
+		pi.ItunesImage = &ItunesImage{Href: ex.ItunesImageHref}
+	}
+	if ex.ItunesExplicit != nil {
+		val := "false"
+		if *ex.ItunesExplicit {
+			val = "true"
+		}
+		pi.ItunesExplicit = &ItunesExplicit{Value: val}
+	}
+	if ex.ItunesEpisode != nil {
+		pi.ItunesEpisode = ex.ItunesEpisode
+	}
+	if ex.ItunesSeason != nil {
+		pi.ItunesSeason = ex.ItunesSeason
+	}
+	if strings.TrimSpace(ex.ItunesEpisodeType) != "" {
+		pi.ItunesEpisodeType = ex.ItunesEpisodeType
+	}
+	if ex.ItunesBlock {
+		pi.ItunesBlock = &ItunesBlock{Value: "yes"}
+	}
+	if len(ex.Transcripts) > 0 {
+		pi.Transcripts = append(pi.Transcripts, ex.Transcripts...)
+	}
+}
+
+// merge helpers
+func mergePSPChannelExtras(a, b PSPChannelExtras) PSPChannelExtras {
+	out := a
+	if b.ItunesExplicit != nil {
+		out.ItunesExplicit = b.ItunesExplicit
+	}
+	if b.ItunesType != "" {
+		out.ItunesType = b.ItunesType
+	}
+	if b.ItunesComplete {
+		out.ItunesComplete = true
+	}
+	if b.ItunesImageHref != "" {
+		out.ItunesImageHref = b.ItunesImageHref
+	}
+	if b.ItunesAuthor != "" {
+		out.ItunesAuthor = b.ItunesAuthor
+	}
+	if len(b.Categories) > 0 {
+		out.Categories = append([]string(nil), b.Categories...)
+	}
+	if b.PodcastLocked != nil {
+		out.PodcastLocked = b.PodcastLocked
+	}
+	if b.PodcastGuid != "" {
+		out.PodcastGuid = b.PodcastGuid
+	}
+	if b.PodcastTXT != nil {
+		out.PodcastTXT = b.PodcastTXT
+	}
+	if b.PodcastFunding != nil {
+		out.PodcastFunding = b.PodcastFunding
+	}
+	return out
+}
+
+func mergePSPItemExtras(a, b PSPItemExtras) PSPItemExtras {
+	out := a
+	if b.ItunesImageHref != "" {
+		out.ItunesImageHref = b.ItunesImageHref
+	}
+	if b.ItunesExplicit != nil {
+		out.ItunesExplicit = b.ItunesExplicit
+	}
+	if b.ItunesEpisode != nil {
+		out.ItunesEpisode = b.ItunesEpisode
+	}
+	if b.ItunesSeason != nil {
+		out.ItunesSeason = b.ItunesSeason
+	}
+	if b.ItunesEpisodeType != "" {
+		out.ItunesEpisodeType = b.ItunesEpisodeType
+	}
+	if b.ItunesBlock {
+		out.ItunesBlock = true
+	}
+	if len(b.Transcripts) > 0 {
+		out.Transcripts = append([]PSPTranscript(nil), b.Transcripts...)
+	}
+	return out
+}
+
+// cfg lookup helper
+func (c *pspConfig) itemExtrasFor(it *Item) (PSPItemExtras, bool) {
+	if c == nil || it == nil {
+		return PSPItemExtras{}, false
+	}
+	if c.ItemByPtr != nil {
+		if ex, ok := c.ItemByPtr[it]; ok {
+			return ex, true
+		}
+	}
+	if c.ItemByID != nil && strings.TrimSpace(it.ID) != "" {
+		if ex, ok := c.ItemByID[it.ID]; ok {
+			return ex, true
+		}
+	}
+	return PSPItemExtras{}, false
+}
+
+// convertCategoryStrings maps simple strings to ItunesCategory nodes.
+func convertCategoryStrings(cats []string) []*ItunesCategory {
+	var out []*ItunesCategory
+	for _, c := range cats {
+		c = strings.TrimSpace(c)
+		if c == "" {
+			continue
+		}
+		out = append(out, &ItunesCategory{Text: c})
+	}
+	return out
 }
 
 func (p *PSP) buildItem(it *Item) *PSPItem {

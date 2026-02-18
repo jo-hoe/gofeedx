@@ -71,7 +71,7 @@ func main() {
 
 ## PSP-1 (Podcast) feed
 
-PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Use the generic fields on Feed and Item; the PSP encoder will emit the required iTunes and podcast:* elements.
+PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Use the generic fields on Feed and Item; the PSP encoder will emit the required iTunes and podcast:* elements. For fields that are not represented in feed.go, use the PSP builder-style options.
 
 ```go
 package main
@@ -117,9 +117,36 @@ func main() {
   if err := feed.ValidatePSP(); err != nil {
     panic(err)
   }
-  xml, _ := feed.ToPSPRSSString()
+
+  // Optional: supply fields not present in feed.go via PSP builder options
+  xml, _ := feed.ToPSPRSSStringOpts(
+    gofeedx.WithPSPChannelExtras(gofeedx.PSPChannelExtras{
+      ItunesExplicit:  boolPtr(true),                 // <itunes:explicit>true</itunes:explicit>
+      ItunesType:      "serial",                      // <itunes:type>serial</itunes:type>
+      ItunesComplete:  true,                          // <itunes:complete>yes</itunes:complete>
+      ItunesAuthor:    "Override Author",             // overrides Feed.Author.Name
+      ItunesImageHref: "https://example.com/cover.png", // overrides Feed.Image.Url
+      Categories:      []string{"Technology", "News"}, // replaces feed-level categories
+      PodcastLocked:   boolPtr(true),                 // <podcast:locked>yes</podcast:locked>
+      PodcastGuid:     "custom-guid-123",             // override podcast:guid
+      PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
+      PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
+    }),
+    gofeedx.WithPSPItemExtrasByID("ep-1", gofeedx.PSPItemExtras{
+      ItunesImageHref:   "https://example.com/ep1.jpg",
+      ItunesExplicit:    boolPtr(false),
+      ItunesEpisode:     intPtr(1),
+      ItunesSeason:      intPtr(1),
+      ItunesEpisodeType: "full",
+      ItunesBlock:       false,
+      Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
+    }),
+  )
   fmt.Println(xml)
 }
+
+func boolPtr(b bool) *bool { return &b }
+func intPtr(i int) *int { return &i }
 ```
 
 ## Adding custom XML nodes (extensions)
@@ -157,6 +184,7 @@ You can keep using the generic Feed/Item structs while supplying format-specific
 
 1) Functional options for RSS-only fields (encoder-time)
 Use options with the Opts variants to set fields like image width/height and TTL that exist only in RSS:
+
 ```go
 rssXML, _ := feed.ToRSSStringOpts(
   gofeedx.WithRSSImageSize(1400, 1400),
@@ -166,7 +194,9 @@ rssXML, _ := feed.ToRSSStringOpts(
 ```
 
 2) Namespaced extensions (plain RSS) or PSP encoder (iTunes/podcast)
+
 - For plain RSS, you can inject namespaced elements via ExtensionNode at channel or item scope:
+
 ```go
 // Channel-level custom node (e.g., itunes:owner)
 gofeedx.AppendFeedExtensions(feed, gofeedx.ExtensionNode{
@@ -182,6 +212,7 @@ gofeedx.AppendItemExtensions(item, gofeedx.ExtensionNode{
   Attrs: map[string]string{"href": "https://example.com/cover.jpg"},
 })
 ```
+
 - For podcast feeds, prefer the PSP encoder (ToPSPRSSString/Feed) which emits required iTunes and podcast:* elements and enforces PSP-1. Use generic fields (FeedURL, Image.Url, Author, Categories, DurationSeconds, etc.) and/or attach additional PSP elements using ExtensionNode.
 
 ## Notes on namespaces
