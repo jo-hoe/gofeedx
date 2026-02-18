@@ -29,7 +29,24 @@ const (
 // ead4c236-bf58-58c6-a2c6-a6b28d128cb6
 var PodcastNamespaceUUID = UUID{0xea, 0xd4, 0xc2, 0x36, 0xbf, 0x58, 0x58, 0xc6, 0xa2, 0xc6, 0xa6, 0xb2, 0x8d, 0x12, 0x8c, 0xb6}
 
-// PSPRSSRoot is the <rss> wrapper with PSP namespaces.
+/*
+PSPRSSRoot is the <rss> wrapper with PSP-1 namespaces.
+
+Per PSP-1 (README.md), podcast feeds MUST:
+- Use RSS version="2.0"
+- Declare the following namespaces at the root:
+  - xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"  (REQUIRED)
+  - xmlns:podcast="https://podcastindex.org/namespace/1.0"     (REQUIRED)
+  - xmlns:atom="http://www.w3.org/2005/Atom"                    (REQUIRED)
+
+- Optionally declare the RDF Site Summary Content Module:
+  - xmlns:content="http://purl.org/rss/1.0/modules/content/"    (OPTIONAL)
+    Only when the feed contains HTML that should be wrapped in CDATA and/or
+    when richer content is emitted. This library heuristically enables it
+    when item Content is present or item Description appears to contain HTML.
+
+Namespace definitions are case-sensitive and must match the PSP-1 specification.
+*/
 type PSPRSSRoot struct {
 	XMLName   xml.Name    `xml:"rss"`
 	Version   string      `xml:"version,attr"`
@@ -40,7 +57,39 @@ type PSPRSSRoot struct {
 	Channel   *PSPChannel `xml:"channel"`
 }
 
-// PSPChannel is the <channel> with standard RSS elements plus PSP extensions.
+/*
+PSPChannel is the <channel> element with RSS/iTunes/Podcast extensions.
+
+PSP-1 requirements classification for channel-level elements:
+
+REQUIRED (must be present and non-empty):
+- <atom:link rel="self" type="application/rss+xml"> (AtomSelf)
+- <title>                                  (Title)
+- <description>                            (Description) — up to 4000 bytes
+- <link>                                   (Link) — site or page URL
+- <language>                               (Language) — ISO 639 format
+- <itunes:category>                       (ItunesCategories) — at least one; order by priority
+- <itunes:explicit>                       (ItunesExplicit) — "true" or "false"
+- <itunes:image href="..."/>              (ItunesImage) — artwork URL
+
+RECOMMENDED (encouraged but not required):
+- <podcast:locked>                          (PodcastLocked) — "yes" or "no"
+- <podcast:guid>                            (PodcastGuid) — UUIDv5 derived from feed URL
+- <itunes:author>                          (ItunesAuthor)
+
+OPTIONAL (supported when relevant):
+  - <copyright>                               (Copyright)
+  - <podcast:txt [purpose="..."]>             (PodcastTXT) — value up to 4000 chars; purpose up to 128 chars
+  - <podcast:funding url="...">Label</podcast:funding> (PodcastFunding)
+    Note: optional in feeds, but PSP-certified hosts/players must support it.
+  - <itunes:type>                             (ItunesType) — "episodic" or "serial"
+    Episodic is assumed if absent; REQUIRED for serial podcasts.
+  - <itunes:complete>                         (ItunesComplete) — "yes"
+
+Other standard RSS fields commonly used:
+- <pubDate>         (PubDate) — OPTIONAL (RSS 2.0)
+- <lastBuildDate>   (LastBuildDate) — OPTIONAL (RSS 2.0)
+*/
 type PSPChannel struct {
 	XMLName     xml.Name `xml:"channel"`
 	Title       string   `xml:"title"`       // required
@@ -139,7 +188,33 @@ type PSPTranscript struct {
 	Rel      string   `xml:"rel,attr,omitempty"`
 }
 
-// PSPItem extends RSS item with PSP/iTunes item fields.
+/*
+PSPItem extends RSS <item> with PSP/iTunes item fields.
+
+PSP-1 requirements classification for item-level elements:
+
+REQUIRED (must be present and valid):
+  - <title>                           (Title)
+  - <enclosure url="..." type="..." length="..."/> (Enclosure)
+    Attributes required: url, type (e.g. audio/mpeg), length in bytes (> 0)
+  - <guid>                             (Guid) — unique, stable per episode
+
+RECOMMENDED (encouraged but not required):
+  - <link>                             (Link)
+  - <pubDate>                          (PubDate) — RFC 2822 format
+  - <description>                      (Description) — up to 4000 bytes, limited HTML allowed in CDATA
+  - <itunes:duration>                 (ItunesDuration) — seconds
+  - <itunes:image href="..."/>        (ItunesImage)
+  - <itunes:explicit>                 (ItunesExplicit) — "true" or "false"
+  - <podcast:transcript url="..." type="..." [language="..."] [rel="..."] /> (Transcripts)
+    Must include url and type attributes; multiple transcripts permitted.
+
+OPTIONAL (supported when relevant):
+- <itunes:episode>                   (ItunesEpisode) — non-zero integer; REQUIRED for serial podcasts
+- <itunes:season>                    (ItunesSeason) — non-zero integer
+- <itunes:episodeType>               (ItunesEpisodeType) — "full" (default), "trailer", or "bonus"
+- <itunes:block>                     (ItunesBlock) — "yes"
+*/
 type PSPItem struct {
 	XMLName     xml.Name `xml:"item"`
 	Title       string   `xml:"title"`                 // required
@@ -326,6 +401,10 @@ func (p *PSPFeed) Validate() error {
 	if strings.TrimSpace(p.src.Description) == "" {
 		return errors.New("psp: channel description required")
 	}
+	// PSP-1: channel description maximum 4000 bytes
+	if len([]byte(p.src.Description)) > 4000 {
+		return errors.New("psp: channel description must be <= 4000 bytes")
+	}
 	if p.src.Link == nil || strings.TrimSpace(p.src.Link.Href) == "" {
 		return errors.New("psp: channel link required")
 	}
@@ -358,6 +437,31 @@ func (p *PSPFeed) Validate() error {
 		// GUID required (can be guid with isPermaLink=false)
 		if strings.TrimSpace(it.ID) == "" {
 			return fmt.Errorf("psp: item[%d] guid (ID) required", i)
+		}
+		// PSP-1: item description maximum 4000 bytes (if present)
+		if len(it.Description) > 0 && len([]byte(it.Description)) > 4000 {
+			return fmt.Errorf("psp: item[%d] description must be <= 4000 bytes", i)
+		}
+		// PSP-1: podcast:transcript must include url and type if present
+		if cfg := p.itemExt[i]; cfg != nil {
+			for _, tr := range cfg.Transcripts {
+				if strings.TrimSpace(tr.Url) == "" || strings.TrimSpace(tr.Type) == "" {
+					return fmt.Errorf("psp: item[%d] podcast:transcript requires url and type", i)
+				}
+			}
+		}
+	}
+	// Conditional requirements per PSP-1:
+	// For serial podcasts, each episode MUST include an itunes:episode number (non-zero integer).
+	if strings.ToLower(p.itunesType) == "serial" {
+		for i := range p.src.Items {
+			epNum := 0
+			if cfg := p.itemExt[i]; cfg != nil && cfg.ItunesEpisode != nil {
+				epNum = *cfg.ItunesEpisode
+			}
+			if epNum <= 0 {
+				return fmt.Errorf("psp: serial podcasts require itunes:episode (non-zero) for item[%d]", i)
+			}
 		}
 	}
 	return nil
