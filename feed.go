@@ -52,6 +52,16 @@ type Item struct {
 
 	// Extensions holds arbitrary extension nodes to append in item/entry scope (RSS/PSP/Atom) and to be flattened for JSON.
 	Extensions []ExtensionNode
+
+	// PSP item fields (optional)
+	ItunesDurationSeconds int
+	ItunesImageHref       string
+	ItunesExplicit        *bool
+	ItunesEpisode         *int
+	ItunesSeason          *int
+	ItunesEpisodeType     string // "full", "trailer", "bonus"
+	ItunesBlock           bool
+	Transcripts           []PSPTranscript
 }
 
 // Feed represents a feed/channel across formats.
@@ -71,6 +81,20 @@ type Feed struct {
 
 	// Extensions holds arbitrary extension nodes to append in channel/feed scope (RSS/PSP/Atom) and to be flattened for JSON.
 	Extensions []ExtensionNode
+
+	// PSP channel fields (optional)
+	AtomSelfHref     string
+	ItunesImageHref  string
+	ItunesExplicit   *bool
+	ItunesAuthor     string
+	ItunesType       string // "episodic" or "serial"
+	ItunesComplete   bool
+	ItunesCategories []*ItunesCategory
+	PodcastLocked    *bool
+	PodcastGuidSeed  string
+	PodcastGuid      string
+	PodcastTXT       *PodcastTXT
+	PodcastFunding   *PodcastFunding
 }
 
 // Add appends a new item to the feed.

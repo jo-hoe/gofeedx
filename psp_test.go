@@ -113,30 +113,34 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	item := newBaseEpisode()
 	feed.Add(item)
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us"). // channel-language
-		WithAtomSelf("https://example.com/podcast.rss"). // channel-atom self
-		WithItunesImage("https://example.com/artwork.jpg"). // channel-itunes-image
-		WithItunesExplicit(false). // channel-itunes-explicit
-		WithItunesAuthor("My Podcast Team"). // recommended channel-itunes-author
-		WithItunesType("episodic"). // optional channel-itunes-type (episodic is default)
-		WithItunesCategory("Technology", "Software"). // required channel-itunes-category (at least one)
-		WithPodcastLocked(true). // recommended channel-podcast-locked
-		WithPodcastGuidFromURL("https://example.com/podcast.rss"). // recommended channel-podcast-guid
-		WithPodcastFunding("https://example.com/support", "Support"). // optional supported channel-podcast-funding
-		WithPodcastTXT("ownership-token", "verify"). // optional supported channel-podcast-txt
-		ConfigureItem(0, gofeedx.PSPItemConfig{
-			ItunesDurationSeconds: 1801, // recommended item-itunes:duration
-			ItunesEpisodeType:     "full",
-			Transcripts: []gofeedx.PSPTranscript{
-				{Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
-			},
-		})
+	// Configure PSP channel fields directly on Feed
+	explicit := false
+	locked := true
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesAuthor = "My Podcast Team"
+	feed.ItunesType = "episodic"
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
+		Text: "Technology",
+		Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
+	})
+	feed.PodcastLocked = &locked
+	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
+	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support"}
+	feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
 
-	if err := psp.Validate(); err != nil {
+	// Configure PSP item fields directly on Item
+	item.ItunesDurationSeconds = 1801
+	item.ItunesEpisodeType = "full"
+	item.Transcripts = []gofeedx.PSPTranscript{
+		{Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
+	}
+
+	if err := feed.ValidatePSP(); err != nil {
 		return "", err
 	}
-	return psp.ToPSPRSS()
+	return feed.ToPSPRSS()
 }
 
 // Test that a fully-configured feed passes validation and includes required namespaces
@@ -229,19 +233,17 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	item.Content = "<p>Welcome</p>"
 	feed.Add(item)
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesCategory("Technology", "Software").
-		ConfigureItem(0, gofeedx.PSPItemConfig{
-			ItunesDurationSeconds: 10,
-		})
-	if err := psp.Validate(); err != nil {
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	item.ItunesDurationSeconds = 10
+
+	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("expected valid feed with HTML content, got error: %v", err)
 	}
-	xml, err := psp.ToPSPRSS()
+	xml, err := feed.ToPSPRSS()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -272,19 +274,17 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 		},
 	})
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/art.jpg").
-		WithItunesExplicit(false).
-		WithItunesCategory("News").
-		WithPodcastGuidFromURL("https://example.com/podcast.rss").
-		ConfigureItem(0, gofeedx.PSPItemConfig{})
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/art.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "News"})
+	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
 
-	if err := psp.Validate(); err != nil {
+	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("Validate failed: %v", err)
 	}
-	xml, err := psp.ToPSPRSS()
+	xml, err := feed.ToPSPRSS()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -309,10 +309,8 @@ func TestPSPValidateFailsMissingRequiredChannelElements(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	// Intentionally omit: itunes:category, itunes:image, itunes:explicit, atom self
-	psp := gofeedx.NewPSPFeed(feed)
-
-	if err := psp.Validate(); err == nil {
-		t.Fatalf("expected Validate to fail when required channel elements are missing")
+	if err := feed.ValidatePSP(); err == nil {
+		t.Fatalf("expected ValidatePSP to fail when required channel elements are missing")
 	}
 }
 
@@ -330,16 +328,14 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 	}
 	feed.Add(item)
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesCategory("Technology").
-		ConfigureItem(0, gofeedx.PSPItemConfig{})
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
 
-	if err := psp.Validate(); err == nil {
-		t.Fatalf("expected Validate to fail when enclosure attributes are missing")
+	if err := feed.ValidatePSP(); err == nil {
+		t.Fatalf("expected ValidatePSP to fail when enclosure attributes are missing")
 	}
 }
 
@@ -348,18 +344,16 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesCategory("Technology").
-		ConfigureItem(0, gofeedx.PSPItemConfig{})
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
 
-	if err := psp.Validate(); err != nil {
-		t.Fatalf("Validate failed: %v", err)
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := psp.ToPSPRSS()
+	xml, err := feed.ToPSPRSS()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -378,36 +372,31 @@ func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	// Mark feed as serial but do not set itunes:episode on the item -> expect validation failure
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesType("serial").
-		WithItunesCategory("Technology").
-		ConfigureItem(0, gofeedx.PSPItemConfig{
-			// No ItunesEpisode set
-			ItunesEpisodeType: "full",
-		})
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesType = "serial"
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Items[0].ItunesEpisodeType = "full"
 
-	if err := psp.Validate(); err == nil {
-		t.Fatalf("expected Validate to fail for serial feed without itunes:episode on item")
+	if err := feed.ValidatePSP(); err == nil {
+		t.Fatalf("expected ValidatePSP to fail for serial feed without itunes:episode on item")
 	}
 
 	// Now set the episode number and expect success
-	pspOK := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesType("serial").
-		WithItunesCategory("Technology").
-		ConfigureItem(0, gofeedx.PSPItemConfig{
-			ItunesEpisode:     intPtr(1),
-			ItunesEpisodeType: "full",
-		})
-	if err := pspOK.Validate(); err != nil {
-		t.Fatalf("expected Validate to succeed for serial feed with itunes:episode, got: %v", err)
+	feedOK := newBaseFeed()
+	feedOK.Add(newBaseEpisode())
+	feedOK.AtomSelfHref = "https://example.com/podcast.rss"
+	feedOK.ItunesImageHref = "https://example.com/artwork.jpg"
+	feedOK.ItunesExplicit = &explicit
+	feedOK.ItunesType = "serial"
+	feedOK.ItunesCategories = append(feedOK.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feedOK.Items[0].ItunesEpisode = intPtr(1)
+	feedOK.Items[0].ItunesEpisodeType = "full"
+
+	if err := feedOK.ValidatePSP(); err != nil {
+		t.Fatalf("expected ValidatePSP to succeed for serial feed with itunes:episode, got: %v", err)
 	}
 }
 
@@ -416,18 +405,19 @@ func TestPSPItunesCategoryStructure(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(false).
-		WithItunesCategory("Technology", "Software").
-		ConfigureItem(0, gofeedx.PSPItemConfig{})
+	explicit := false
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
+		Text: "Technology",
+		Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
+	})
 
-	if err := psp.Validate(); err != nil {
-		t.Fatalf("Validate failed: %v", err)
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := psp.ToPSPRSS()
+	xml, err := feed.ToPSPRSS()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -446,20 +436,17 @@ func TestPSPItunesExplicitBooleanValues(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 
-	psp := gofeedx.NewPSPFeed(feed).
-		WithLanguage("en-us").
-		WithAtomSelf("https://example.com/podcast.rss").
-		WithItunesImage("https://example.com/artwork.jpg").
-		WithItunesExplicit(true). // channel-level explicit true
-		WithItunesCategory("Technology").
-		ConfigureItem(0, gofeedx.PSPItemConfig{
-			ItunesEpisodeType: "full",
-		})
+	explicit := true
+	feed.AtomSelfHref = "https://example.com/podcast.rss"
+	feed.ItunesImageHref = "https://example.com/artwork.jpg"
+	feed.ItunesExplicit = &explicit
+	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Items[0].ItunesEpisodeType = "full"
 
-	if err := psp.Validate(); err != nil {
-		t.Fatalf("Validate failed: %v", err)
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := psp.ToPSPRSS()
+	xml, err := feed.ToPSPRSS()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}

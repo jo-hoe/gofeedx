@@ -55,7 +55,7 @@ func main() {
  }
  feed.Add(item)
 
- // RSS 2.0
+ // RSS 2.0.1
  rss, _ := feed.ToRSS()
  fmt.Println(rss)
 
@@ -71,65 +71,71 @@ func main() {
 
 ## PSP-1 (Podcast) feed
 
-PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Use the builder PSPFeed to ensure required fields are present.
+PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Configure podcast/iTunes fields directly on Feed and Item, then call ToPSPRSS() to render a compliant PSP-1 feed.
 
 ```go
 package main
 
 import (
- "fmt"
- "time"
+  "fmt"
+  "time"
 
- "github.com/jo-hoe/gofeedx"
+  "github.com/jo-hoe/gofeedx"
 )
 
 func main() {
- feed := &gofeedx.Feed{
-  Title:       "My Podcast",
-  Link:        &gofeedx.Link{Href: "https://example.com/podcast"},
-  Description: "A show about Go.",
-  Language:    "en-us",
-  Created:     time.Now(),
- }
- feed.Add(&gofeedx.Item{
-  Title:   "Episode 1",
-  ID:      "ep-1",
-  Created: time.Now(),
-  Enclosure: &gofeedx.Enclosure{
-   Url:    "https://cdn.example.com/audio/ep1.mp3",
-   Type:   "audio/mpeg",
-   Length: 12345678, // bytes
-  },
-  Description: "We talk about Go modules.",
- })
+  feed := &gofeedx.Feed{
+    Title:       "My Podcast",
+    Link:        &gofeedx.Link{Href: "https://example.com/podcast"},
+    Description: "A show about Go.",
+    Language:    "en-us",
+    Created:     time.Now(),
+  }
 
- psp := gofeedx.NewPSPFeed(feed).
-  WithLanguage("en-us").
-  WithAtomSelf("https://example.com/podcast.rss").
-  WithItunesImage("https://example.com/artwork.jpg").
-  WithItunesExplicit(false).
-  WithItunesAuthor("My Podcast Team").
-  WithItunesType("episodic").
-  WithItunesCategory("Technology", "Software").
-  WithPodcastLocked(true).
-  WithPodcastGuidFromURL("https://example.com/podcast.rss").
-  WithPodcastFunding("https://example.com/support", "Support").
-  WithPodcastTXT("ownership-token", "verify").
-  ConfigureItem(0, gofeedx.PSPItemConfig{
-   ItunesDurationSeconds: 1801,
-   ItunesEpisode:         intPtr(1),
-   ItunesSeason:          intPtr(1),
-   ItunesEpisodeType:     "full",
-   Transcripts: []gofeedx.PSPTranscript{
-    {Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
-   },
+  item := &gofeedx.Item{
+    Title:   "Episode 1",
+    ID:      "ep-1",
+    Created: time.Now(),
+    Enclosure: &gofeedx.Enclosure{
+      Url:    "https://cdn.example.com/audio/ep1.mp3",
+      Type:   "audio/mpeg",
+      Length: 12345678, // bytes
+    },
+    Description: "We talk about Go modules.",
+  }
+  feed.Add(item)
+
+  // Channel-level PSP/iTunes/podcast settings
+  explicit := false
+  locked := true
+  feed.AtomSelfHref = "https://example.com/podcast.rss"
+  feed.ItunesImageHref = "https://example.com/artwork.jpg"
+  feed.ItunesExplicit = &explicit
+  feed.ItunesAuthor = "My Podcast Team"
+  feed.ItunesType = "episodic"
+  feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
+    Text: "Technology",
+    Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
   })
+  feed.PodcastLocked = &locked
+  feed.PodcastGuidSeed = "https://example.com/podcast.rss" // used to derive podcast:guid via UUIDv5
+  feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support"}
+  feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
 
- if err := psp.Validate(); err != nil {
-  panic(err)
- }
- xml, _ := psp.ToPSPRSS()
- fmt.Println(xml)
+  // Item-level PSP/iTunes extras
+  item.ItunesDurationSeconds = 1801
+  item.ItunesEpisode = intPtr(1)
+  item.ItunesSeason = intPtr(1)
+  item.ItunesEpisodeType = "full"
+  item.Transcripts = []gofeedx.PSPTranscript{
+    {Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
+  }
+
+  if err := feed.ValidatePSP(); err != nil {
+    panic(err)
+  }
+  xml, _ := feed.ToPSPRSS()
+  fmt.Println(xml)
 }
 
 func intPtr(i int) *int { return &i }
@@ -137,28 +143,30 @@ func intPtr(i int) *int { return &i }
 
 ## Adding custom XML nodes (extensions)
 
-You can attach arbitrary namespaced nodes to channel/feed and item/entry scopes.
+You can attach arbitrary namespaced nodes to channel/feed and item/entry scopes using ExtensionNode.
+
+Channel-level example:
 
 ```go
-feed.CustomChannelNodes = append(feed.CustomChannelNodes, gofeedx.XMLNode{
- Name: "itunes:owner",
- Children: []gofeedx.XMLNode{
-  {Name: "itunes:name", Text: "Alice Example"},
-  {Name: "itunes:email", Text: "podcast@example.com"},
- },
+feed.Extensions = append(feed.Extensions, gofeedx.ExtensionNode{
+  Name: "itunes:owner",
+  Children: []gofeedx.ExtensionNode{
+    {Name: "itunes:name", Text: "Alice Example"},
+    {Name: "itunes:email", Text: "podcast@example.com"},
+  },
 })
 ```
 
 Per item:
 
 ```go
-feed.Items[0].CustomItemNodes = append(feed.Items[0].CustomItemNodes, gofeedx.XMLNode{
- Name: "podcast:value",
- Attrs: map[string]string{
-  "type":      "lightning",
-  "method":    "keysend",
-  "suggested": "0.00000015000",
- },
+feed.Items[0].Extensions = append(feed.Items[0].Extensions, gofeedx.ExtensionNode{
+  Name: "podcast:value",
+  Attrs: map[string]string{
+    "type":      "lightning",
+    "method":    "keysend",
+    "suggested": "0.00000015000",
+  },
 })
 ```
 
