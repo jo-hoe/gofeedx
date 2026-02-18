@@ -3,7 +3,7 @@
 gofeedx is a small Go library for generating:
 
 - [RSS 2.0.1](https://www.rssboard.org/rss-2-0-1)
-- [Atom](https://datatracker.ietf.org/doc/html/rfc2026)
+- [Atom](https://www.ietf.org/rfc/rfc4287.txt)
 - [PSP-1: The Podcast RSS Standard](https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification)
 - and [JSON Feed 1.1](https://jsonfeed.org/version/1.1/)
 
