@@ -1,6 +1,7 @@
 # gofeedx: minimal-dependency feed generator for Go
 
-gofeedx is a small Go library for generating feeds with only the Go standard library. It follows common Go patterns and supports custom namespaced extensions.
+gofeedx is a small Go library for generating feeds with only the Go standard library.
+It follows common Go patterns and supports custom namespaced extensions.
 
 Supported formats:
 
