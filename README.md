@@ -173,8 +173,8 @@ feed.Items[0].Extensions = append(feed.Items[0].Extensions, gofeedx.ExtensionNod
 ## Notes on namespaces
 
 - RSS: content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
-- Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the <feed> root.
-- PSP-1: namespaces for iTunes (<http://www.itunes.com/dtds/podcast-1.0.dtd>), podcast (<https://podcastindex.org/namespace/1.0>) and Atom are declared on the root <rss> element.
+- Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the `<feed>` root.
+- PSP-1: namespaces for iTunes (<http://www.itunes.com/dtds/podcast-1.0.dtd>), podcast (<https://podcastindex.org/namespace/1.0>) and Atom are declared on the root `<rss>` element.
 
 ## IDs and dates
 
@@ -207,6 +207,7 @@ The following tables show how generic fields in feed.go map to each target forma
 | Categories (top-level) | `<channel><category>` = first non-empty | `<feed><category>` = first non-empty | — | `itunes:category` from all non-empty categories |
 
 Notes:
+
 - Atom and RSS only use the first top-level Category (if present).
 - PSP-1 maps all non-empty Categories to `itunes:category` (single level) via convertCategories.
 - JSON Feed does not map feed-level Categories; use item-level tags if needed (not part of generic Item in this library).
@@ -230,5 +231,6 @@ Notes:
 | Extensions | item: appended as custom nodes | entry: appended as custom nodes | flattened into item object (name: text) | item: appended as custom nodes |
 
 Notes:
+
 - JSON Feed enclosure mapping: if Enclosure.Type starts with "image/", it populates the `items[].image` field; otherwise it adds a JSON attachment with `url`, `mime_type`, `size` (int32-capped), and optional duration.
 - ID generation when missing uses a tag:host,date:path URI if Link.Href and any timestamp exists; otherwise a URN with a random UUID v4.
