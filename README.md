@@ -1,243 +1,205 @@
 # gofeedx: minimal-dependency feed generator for Go
 
-gofeedx is a small Go library for generating:
+gofeedx is a small Go library for generating feeds with only the Go standard library. It follows common Go patterns and supports custom namespaced extensions.
+
+Supported formats:
 
 - [RSS 2.0.1](https://www.rssboard.org/rss-2-0-1)
 - [Atom 1.0](https://www.ietf.org/rfc/rfc4287.txt)
 - [PSP-1: The Podcast RSS Standard](https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification)
 - and [JSON Feed 1.1](https://jsonfeed.org/version/1.1/)
 
-It follows common Go patterns, uses only the standard library, and supports custom namespaced nodes without extra dependencies.
+## Installation
 
-Install
-
-- Go 1.24+
-- Add as a module dependency
-
-Example:
+Add as a module dependency:
 
 ```bash
-  go get github.com/jo-hoe/gofeedx@latest
+go get github.com/jo-hoe/gofeedx@latest
 ```
 
-## Basic usage
+## Quick start
 
-Create a feed and generate RSS, Atom, JSON Feed:
+Create a feed and generate RSS, Atom, JSON Feed, and PSP-1 Podcast RSS.
 
 ```go
-  package main
+package main
 
-  import (
-    "fmt"
-    "time"
+import (
+  "fmt"
+  "time"
 
-    "github.com/jo-hoe/gofeedx"
-  )
+  "github.com/jo-hoe/gofeedx"
+)
 
-  func main() {
-    feed := &gofeedx.Feed{
-      Title:       "My Blog",
-      Link:        &gofeedx.Link{Href: "https://example.com"},
-      Description: "Example feed",
-      Language:    "en-us",
-      Author:      &gofeedx.Author{Name: "Alice", Email: "alice@example.com"},
-      Created:     time.Now(),
-    }
-
-    item := &gofeedx.Item{
-      Title:       "Hello World",
-      Link:        &gofeedx.Link{Href: "https://example.com/hello"},
-      Description: "First post",
-      ID:          "post-1",
-      Created:     time.Now(),
-      Content:     "<p>Welcome to my blog.</p>",
-      Enclosure:   &gofeedx.Enclosure{Url: "https://example.com/cover.jpg", Type: "image/jpeg", Length: 0},
-    }
-    feed.Add(item)
-
-    // RSS
-    rss, _ := feed.ToRSSString()
-    fmt.Println(rss)
-
-    // Atom
-    atom, _ := feed.ToAtomString()
-    fmt.Println(atom)
-
-    // JSON Feed
-    jsonStr, _ := feed.ToJSONString()
-    fmt.Println(jsonStr)
-
-    // PSP-1 Podcast RSS
-    pspRSS, _ := feed.ToPSPRSSString()
-    fmt.Println(pspRSS)
+func main() {
+  feed := &gofeedx.Feed{
+    Title:       "My Blog",
+    Link:        &gofeedx.Link{Href: "https://example.com"},
+    Description: "Example feed",
+    Language:    "en-us",
+    Author:      &gofeedx.Author{Name: "Alice", Email: "alice@example.com"},
+    Created:     time.Now(),
   }
-```
 
-Builder pattern for extensions and format-specific fields
-
-There is a single, consistent way to set additional attributes and namespaced nodes across all formats:
-
-- Feed-level: feed.ApplyExtensions(opts...)
-- Item-level: item.ApplyExtensions(opts...)
-- Typed builders for common formats:
-  - PSP/iTunes/Podcasting 2.0: WithPSPChannel, WithPSPItem
-  - RSS channel-only fields: WithRSSChannel
-- Fully custom nodes: WithCustomFeed, WithCustomItem
-
-## PSP-1 (Podcast) feed
-
-PSP-1 builds on RSS 2.0 and requires specific namespaces and elements. Use generic Feed/Item fields for core data and the unified builders to set PSP/iTunes specifics.
-
-```go
-  package main
-
-  import (
-    "fmt"
-    "time"
-
-    "github.com/jo-hoe/gofeedx"
-  )
-
-  func boolPtr(b bool) *bool { return &b }
-  func intPtr(i int) *int    { return &i }
-
-  func main() {
-    feed := &gofeedx.Feed{
-      Title:       "My Podcast",
-      Link:        &gofeedx.Link{Href: "https://example.com/podcast"},
-      Description: "A show about Go.",
-      Language:    "en-us",
-      Created:     time.Now(),
-    }
-
-    item := &gofeedx.Item{
-      Title:   "Episode 1",
-      ID:      "ep-1",
-      Created: time.Now(),
-      Enclosure: &gofeedx.Enclosure{
-        Url:    "https://cdn.example.com/audio/ep1.mp3",
-        Type:   "audio/mpeg",
-        Length: 12345678, // bytes
-      },
-      Description: "We talk about Go modules.",
-    }
-    feed.Add(item)
-
-    // Core PSP channel-level values derived from generic fields
-    feed.FeedURL = "https://example.com/podcast.rss"               // atom:link rel=self (required)
-    feed.Image = &gofeedx.Image{Url: "https://example.com/art.jpg"} // itunes:image
-    feed.Author = &gofeedx.Author{Name: "My Podcast Team"}          // itunes:author
-    feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"}) // itunes:category
-
-    // Item-level duration -> itunes:duration
-    item.DurationSeconds = 1801
-
-    // Typed PSP/iTunes fields via unified builders
-    feed.ApplyExtensions(
-      gofeedx.WithPSPChannel(gofeedx.PSPChannelFields{
-        ItunesExplicit:  boolPtr(true), // <itunes:explicit>true</itunes:explicit>
-        ItunesType:      "serial",      // <itunes:type>serial</itunes:type>
-        ItunesComplete:  true,          // <itunes:complete>yes</itunes:complete>
-        ItunesAuthor:    "Override Author",
-        ItunesImageHref: "https://example.com/cover.png",
-        Categories:      []string{"Technology", "News"},
-        PodcastLocked:   boolPtr(true), // <podcast:locked>yes</podcast:locked>
-        PodcastGuid:     "custom-guid-123",
-        PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
-        PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
-      }),
-    )
-
-    item.ApplyExtensions(
-      gofeedx.WithPSPItem(gofeedx.PSPItemFields{
-        ItunesImageHref:   "https://example.com/ep1.jpg",
-        ItunesExplicit:    boolPtr(false),
-        ItunesEpisode:     intPtr(1),
-        ItunesSeason:      intPtr(1),
-        ItunesEpisodeType: "full",
-        ItunesBlock:       true,
-        Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
-      }),
-    )
-
-    if err := feed.ValidatePSP(); err != nil {
-      panic(err)
-    }
-    xmlStr, _ := feed.ToPSPRSSString()
-    fmt.Println(xmlStr)
+  item := &gofeedx.Item{
+    Title:       "Hello World",
+    Link:        &gofeedx.Link{Href: "https://example.com/hello"},
+    Description: "First post",
+    ID:          "post-1",
+    Created:     time.Now(),
+    Content:     "<p>Welcome to my blog.</p>",
+    Enclosure:   &gofeedx.Enclosure{Url: "https://example.com/cover.jpg", Type: "image/jpeg", Length: 0},
   }
+  feed.Add(item)
+
+  // RSS
+  rss, _ := feed.ToRSSString()
+  fmt.Println(rss)
+
+  // Atom
+  atom, _ := feed.ToAtomString()
+  fmt.Println(atom)
+
+  // JSON Feed
+  jsonStr, _ := feed.ToJSONString()
+  fmt.Println(jsonStr)
+
+  // PSP-1 Podcast RSS
+  pspRSS, _ := feed.ToPSPRSSString()
+  fmt.Println(pspRSS)
+}
 ```
 
-## RSS channel-only fields with the unified builder
+## Extensions and format-specific fields
 
-Use WithRSSChannel to set RSS 2.0 fields that don’t exist in other formats (e.g., image width/height, TTL, category override):
+Use one consistent mechanism to set additional attributes and namespaced nodes:
+
+- Apply at feed level: `feed.ApplyExtensions(opts...)`
+- Apply at item level: `item.ApplyExtensions(opts...)`
+- Provided builders:
+  - PSP/iTunes/Podcasting 2.0: `WithPSPChannel`, `WithPSPItem`
+  - RSS channel-only fields: `WithRSSChannel`
+  - Custom nodes: `WithCustomFeed`, `WithCustomItem`
+
+See examples below.
+
+### PSP-1 (Podcast RSS) specifics
+
+PSP-1 builds on RSS 2.0 and requires specific fields/namespaces.
+Use generic Feed/Item fields for core data, and builders for PSP/iTunes specifics.
+
+Continuing from the Quick start example:
 
 ```go
-  feed.ApplyExtensions(
-    gofeedx.WithRSSChannel(gofeedx.RSSChannelFields{
-      ImageWidth:  1400,
-      ImageHeight: 1400,
-      TTL:         60,
-      Category:    "Technology",
-    }),
-  )
+// Minimal PSP-1 specifics
+feed.FeedURL = "https://example.com/podcast.rss"               // atom:link rel=self (required for PSP-1)
+feed.Image = &gofeedx.Image{Url: "https://example.com/art.jpg"} // itunes:image
+feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"}) // itunes:category
+
+// Item-level duration -> itunes:duration
+item.DurationSeconds = 1801
+
+// Optional PSP/iTunes fields via builders
+boolPtr := func(b bool) *bool { return &b }
+intPtr := func(i int) *int { return &i }
+
+feed.ApplyExtensions(
+  gofeedx.WithPSPChannel(gofeedx.PSPChannelFields{
+    ItunesExplicit:  boolPtr(true),
+    ItunesType:      "serial",
+    ItunesComplete:  true,
+    ItunesAuthor:    "Override Author",
+    ItunesImageHref: "https://example.com/cover.png",
+    Categories:      []string{"Technology", "News"},
+    PodcastLocked:   boolPtr(true),
+    PodcastGuid:     "custom-guid-123",
+    PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
+    PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
+  }),
+)
+
+item.ApplyExtensions(
+  gofeedx.WithPSPItem(gofeedx.PSPItemFields{
+    ItunesImageHref:   "https://example.com/ep1.jpg",
+    ItunesExplicit:    boolPtr(false),
+    ItunesEpisode:     intPtr(1),
+    ItunesSeason:      intPtr(1),
+    ItunesEpisodeType: "full",
+    ItunesBlock:       true,
+    Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
+  }),
+)
+
+if err := feed.ValidatePSP(); err != nil {
+  panic(err)
+}
+xmlStr, _ := feed.ToPSPRSSString()
+fmt.Println(xmlStr)
 ```
 
-## Adding custom nodes (extensions)
+### RSS channel-only fields
 
-Attach arbitrary namespaced nodes with the unified builder:
-
-### Feed/channel scope
+Use `WithRSSChannel` for RSS 2.0 channel fields that don’t exist in other formats (e.g., image width/height, TTL, category override):
 
 ```go
-  feed.ApplyExtensions(
-    gofeedx.WithCustomFeed(
-      gofeedx.ExtensionNode{
-        Name: "itunes:owner",
-        Children: []gofeedx.ExtensionNode{
-          {Name: "itunes:name", Text: "Alice Example"},
-          {Name: "itunes:email", Text: "podcast@example.com"},
-        },
+feed.ApplyExtensions(
+  gofeedx.WithRSSChannel(gofeedx.RSSChannelFields{
+    ImageWidth:  1400,
+    ImageHeight: 1400,
+    TTL:         60,
+    Category:    "Technology",
+  }),
+)
+```
+
+### Custom nodes (extensions)
+
+Attach arbitrary namespaced nodes with builders.
+
+- Feed/channel scope
+
+```go
+feed.ApplyExtensions(
+  gofeedx.WithCustomFeed(
+    gofeedx.ExtensionNode{
+      Name: "itunes:owner",
+      Children: []gofeedx.ExtensionNode{
+        {Name: "itunes:name", Text: "Alice Example"},
+        {Name: "itunes:email", Text: "podcast@example.com"},
       },
-    ),
-  )
+    },
+  ),
+)
 ```
 
-### Item/entry scope
+- Item/entry scope
 
 ```go
-  item.ApplyExtensions(
-    gofeedx.WithCustomItem(
-      gofeedx.ExtensionNode{
-        Name: "podcast:value",
-        Attrs: map[string]string{
-          "type":      "lightning",
-          "method":    "keysend",
-          "suggested": "0.00000015000",
-        },
+item.ApplyExtensions(
+  gofeedx.WithCustomItem(
+    gofeedx.ExtensionNode{
+      Name: "podcast:value",
+      Attrs: map[string]string{
+        "type":      "lightning",
+        "method":    "keysend",
+        "suggested": "0.00000015000",
       },
-    ),
-  )
+    },
+  ),
+)
 ```
 
-## Notes on namespaces
+## Namespaces and format notes
 
-- RSS: content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
-- Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the feed root element.
-- PSP-1: required namespaces for iTunes (<http://www.itunes.com/dtds/podcast-1.0.dtd>), podcast (<https://podcastindex.org/namespace/1.0>), and Atom are declared on the RSS root.
-
-## IDs and dates
-
-- RSS: dates use RFC1123Z.
-- Atom: dates use RFC3339; entry IDs generated as tag:host,date:path if not provided, else random UUID URN.
-- JSON Feed: version 1.1, author array is supported (mapped from single author for convenience).
-- PSP-1: podcast:guid is generated via UUID v5 using the feed URL (scheme removed, trailing slashes trimmed) with namespace ead4c236-bf58-58c6-a2c6-a6b28d128cb6 when Feed.ID is empty.
+- RSS: the content namespace (http://purl.org/rss/1.0/modules/content/) is declared only if content:encoded is used.
+- Atom: xmlns is set to http://www.w3.org/2005/Atom on the feed root element.
+- PSP-1: required namespaces for iTunes (http://www.itunes.com/dtds/podcast-1.0.dtd), podcast (https://podcastindex.org/namespace/1.0), and Atom are declared on the RSS root.
 
 ## Field-to-format mapping
 
-The following tables show how generic fields in feed.go map to each target format.
+The following tables show how generic fields map to each target format.
 
-### Feed-level mapping
+Feed-level mapping:
 
 | feed.go field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
 | --- | --- | --- | --- | --- |
@@ -256,7 +218,7 @@ The following tables show how generic fields in feed.go map to each target forma
 | FeedURL | — | — | feed_url | atom:link rel="self" type="application/rss+xml" (required) |
 | Categories | `<channel><category>` = first non-empty | `<feed><category>` = first non-empty | — | itunes:category for all non-empty |
 
-### Item-level mapping
+Item-level mapping:
 
 | feed.go Item field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
 | --- | --- | --- | --- | --- |
@@ -274,9 +236,23 @@ The following tables show how generic fields in feed.go map to each target forma
 | DurationSeconds | — | — | attachments[].duration_in_seconds | itunes:duration |
 | Extensions | item: custom nodes | entry: custom nodes | flattened into item (name: text) | item: custom nodes |
 
+## Notes
+
+- Atom dates use RFC3339; RSS/PSP-1 dates use RFC1123Z.
+- Atom entry IDs are generated as `tag:host,date:path` if not provided, else a random UUID URN.
+- JSON Feed version 1.1 is produced; a single author maps to authors[0].
+- PSP-1 podcast:guid is generated via UUID v5 using the feed URL (scheme removed, trailing slashes trimmed) with namespace `ead4c236-bf58-58c6-a2c6-a6b28d128cb6` when Feed.ID is empty.
+
 ## Validation helpers
 
-- ValidateRSS(), ValidateAtom(), ValidateJSON(), ValidatePSP() enforce minimal conformance before writing. Use them to catch issues early.
+Minimal conformance checks before writing:
+
+- `ValidateRSS()`
+- `ValidateAtom()`
+- `ValidateJSON()`
+- `ValidatePSP()`
+
+Use these to catch issues early.
 
 ## License
 
