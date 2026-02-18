@@ -182,3 +182,53 @@ feed.Items[0].Extensions = append(feed.Items[0].Extensions, gofeedx.ExtensionNod
 - Atom: dates use RFC3339; entry IDs generated as tag:host,date:path if not provided, else random UUID URN.
 - JSON Feed: version 1.1, author array is supported (mapped from single author for convenience).
 - PSP-1: podcast:guid is generated via UUID v5 using the feed URL (scheme removed, trailing slashes trimmed) with namespace ead4c236-bf58-58c6-a2c6-a6b28d128cb6.
+
+## Field-to-format mapping
+
+The following tables show how generic fields in feed.go map to each target format. See “IDs and dates” above for generation and formatting rules.
+
+### Feed-level mapping
+
+| feed.go field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
+| --- | --- | --- | --- | --- |
+| Title | `<channel><title>` | `<feed><title>` | `title` | `<channel><title>` (required) |
+| Link.Href | `<channel><link>` | `<feed><link rel="alternate" href>` | `home_page_url` | `<channel><link>` (required) |
+| Description | `<channel><description>` | `<feed><subtitle>` | `description` | `<channel><description>` (required, <= 4000 bytes) |
+| Author.Name / Author.Email | `<channel><managingEditor>` as "email (Name)" | `<feed><author><name>`, `<email>` | `authors[0].name` | `itunes:author` = Author.Name |
+| Updated | `<channel><lastBuildDate>` (RFC1123Z) | `<feed><updated>` (RFC3339; Updated, else Created) | — | `<channel><lastBuildDate>` (RFC1123Z) |
+| Created | `<channel><pubDate>` (RFC1123Z) | used as fallback in `<feed><updated>` (RFC3339) | — | `<channel><pubDate>` (RFC1123Z) |
+| ID | — | `<feed><id>` = firstNonEmpty(ID, Link.Href) | — | `podcast:guid` = ID if set, else UUIDv5(feed_url) |
+| Items | `<channel><item>[]` | `<feed><entry>[]` | `items[]` | `<channel><item>[]` |
+| Copyright | `<channel><copyright>` | `<feed><rights>` | — | `<channel><copyright>` |
+| Image.Url / Title / Link | `<channel><image> url/title/link` | `<feed><logo>` and `<icon>` = Image.Url | `icon` and `favicon` = Image.Url | `itunes:image@href` = Image.Url |
+| Language | `<channel><language>` | — | `language` | `<channel><language>` (required) |
+| Extensions | channel: appended as custom nodes | feed: appended as custom nodes | flattened into top-level keys (name: text) | channel: appended as custom nodes |
+| FeedURL | — | — | `feed_url` | `atom:link rel="self" type="application/rss+xml"` (required) |
+| Categories (top-level) | `<channel><category>` = first non-empty | `<feed><category>` = first non-empty | — | `itunes:category` from all non-empty categories |
+
+Notes:
+- Atom and RSS only use the first top-level Category (if present).
+- PSP-1 maps all non-empty Categories to `itunes:category` (single level) via convertCategories.
+- JSON Feed does not map feed-level Categories; use item-level tags if needed (not part of generic Item in this library).
+
+### Item-level mapping
+
+| feed.go Item field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
+| --- | --- | --- | --- | --- |
+| Title | `<item><title>` | `<entry><title>` | `items[].title` | `<item><title>` |
+| Link.Href | `<item><link>` | `<entry><link rel="alternate">` | `items[].url` | `<item><link>` (recommended) |
+| Source.Href | `<item><source>` | `<entry><link rel="related">` | `items[].external_url` | — |
+| Author.Name / Author.Email | `<item><author>` as "email (Name)" | `<entry><author><name>`, `<email>` | `items[].authors[0].name` | — |
+| Description | `<item><description>` | `<entry><summary type="html">` | `items[].summary` | `<item><description>` (recommended) |
+| Content (HTML) | `content:encoded` (CDATA) | `<entry><content type="html">` | `items[].content_html` | — |
+| ID | `<item><guid>` (with optional `isPermaLink`) | `<entry><id>` (generated if empty) | `items[].id` (generated if empty) | `<item><guid>` (generated if empty) |
+| IsPermaLink | `guid@isPermaLink` ("true"/"false"/omit) | — | — | `guid@isPermaLink` |
+| Updated | `<item><pubDate>` (RFC1123Z; Created or Updated) | `<entry><updated>` (RFC3339) | `items[].date_modified` | `<item><pubDate>` (RFC1123Z) |
+| Created | `<item><pubDate>` (RFC1123Z) | `<entry><published>` (RFC3339) | `items[].date_published` | `<item><pubDate>` (RFC1123Z) |
+| Enclosure.Url / Type / Length | `<item><enclosure url type length>` (all required by spec) | `<entry><link rel="enclosure" type length>` | image -> `items[].image`; otherwise `attachments[]` with `url`,`mime_type`,`size` | `<item><enclosure>` (required) |
+| DurationSeconds | — | — | `attachments[].duration_in_seconds` | `itunes:duration` |
+| Extensions | item: appended as custom nodes | entry: appended as custom nodes | flattened into item object (name: text) | item: appended as custom nodes |
+
+Notes:
+- JSON Feed enclosure mapping: if Enclosure.Type starts with "image/", it populates the `items[].image` field; otherwise it adds a JSON attachment with `url`, `mime_type`, `size` (int32-capped), and optional duration.
+- ID generation when missing uses a tag:host,date:path URI if Link.Href and any timestamp exists; otherwise a URN with a random UUID v4.
