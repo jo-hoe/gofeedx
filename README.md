@@ -241,36 +241,36 @@ The following tables show how generic fields in feed.go map to each target forma
 
 | feed.go field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
 | --- | --- | --- | --- | --- |
-| Title | <channel><title> | <feed><title> | title | <channel><title> (required) |
-| Link.Href | <channel><link> | <feed><link rel="alternate" href> | home_page_url | <channel><link> (required) |
-| Description | <channel><description> | <feed><subtitle> | description | <channel><description> (required, <= 4000 bytes) |
-| Author.Name / Author.Email | <channel><managingEditor> as "email (Name)" | <feed><author> | authors[0].name | itunes:author = Author.Name |
-| Updated | <channel><lastBuildDate> (RFC1123Z) | <feed><updated> (RFC3339; Updated, else Created) | — | <channel><lastBuildDate> (RFC1123Z) |
-| Created | <channel><pubDate> (RFC1123Z) | used in <feed><updated> fallback | — | <channel><pubDate> (RFC1123Z) |
-| ID | — | <feed><id> = firstNonEmpty(ID, Link.Href) | — | podcast:guid = ID if set, else UUIDv5(feed_url) |
-| Items | <channel><item>[] | <feed><entry>[] | items[] | <channel><item>[] |
-| Copyright | <channel><copyright> | <feed><rights> | — | <channel><copyright> |
-| Image.Url / Title / Link | <channel><image> url/title/link | <feed><logo>, <icon> = Image.Url | icon, favicon = Image.Url | itunes:image@href = Image.Url |
-| Language | <channel><language> | — | language | <channel><language> (required) |
+| Title | `<channel><title>` | `<feed><title>` | title | `<channel><title>` (required) |
+| Link.Href | `<channel><link>` | `<feed><link rel="alternate" href>` | home_page_url | `<channel><link>` (required) |
+| Description | `<channel><description>` | `<feed><subtitle>` | description | `<channel><description>` (required, <= 4000 bytes) |
+| Author.Name / Author.Email | `<channel><managingEditor>` as "email (Name)" | `<feed><author>` | authors[0].name | itunes:author = Author.Name |
+| Updated | `<channel><lastBuildDate>` (RFC1123Z) | `<feed><updated>` (RFC3339; Updated, else Created) | — | `<channel><lastBuildDate>` (RFC1123Z) |
+| Created | `<channel><pubDate>` (RFC1123Z) | used in `<feed><updated>` fallback | — | `<channel><pubDate>` (RFC1123Z) |
+| ID | — | `<feed><id>` = firstNonEmpty(ID, Link.Href) | — | podcast:guid = ID if set, else UUIDv5(feed_url) |
+| Items | `<channel><item>`[] | `<feed><entry>`[] | items[] | `<channel><item>`[] |
+| Copyright | `<channel><copyright>` | `<feed><rights>` | — | `<channel><copyright>` |
+| Image.Url / Title / Link | `<channel><image>` url/title/link | `<feed><logo>`, `<icon>` = Image.Url | icon, favicon = Image.Url | itunes:image@href = Image.Url |
+| Language | `<channel><language>` | — | language | `<channel><language>` (required) |
 | Extensions | channel: custom nodes | feed: custom nodes | flattened into top-level keys (name: text) | channel: custom nodes |
 | FeedURL | — | — | feed_url | atom:link rel="self" type="application/rss+xml" (required) |
-| Categories | <channel><category> = first non-empty | <feed><category> = first non-empty | — | itunes:category for all non-empty |
+| Categories | `<channel><category>` = first non-empty | `<feed><category>` = first non-empty | — | itunes:category for all non-empty |
 
 ### Item-level mapping
 
 | feed.go Item field | RSS 2.0 | Atom 1.0 | JSON Feed 1.1 | PSP-1 RSS |
 | --- | --- | --- | --- | --- |
-| Title | <item><title> | <entry><title> | items[].title | <item><title> |
-| Link.Href | <item><link> | <entry><link rel="alternate"> | items[].url | <item><link> (recommended) |
-| Source.Href | <item><source> | <entry><link rel="related"> | items[].external_url | — |
-| Author.Name / Author.Email | <item><author> as "email (Name)" | <entry><author> | items[].authors[0].name | — |
-| Description | <item><description> | <entry><summary type="html"> | items[].summary | <item><description> (recommended) |
-| Content (HTML) | content:encoded (CDATA) | <entry><content type="html"> | items[].content_html | — |
-| ID | <item><guid> (with isPermaLink) | <entry><id> (generated if empty) | items[].id (generated if empty) | <item><guid> (generated if empty) |
+| Title | `<item><title>` | `<entry><title>` | items[].title | `<item><title>` |
+| Link.Href | `<item><link>` | `<entry><link rel="alternate">` | items[].url | `<item><link>` (recommended) |
+| Source.Href | `<item><source>` | `<entry><link rel="related">` | items[].external_url | — |
+| Author.Name / Author.Email | `<item><author>` as "email (Name)" | `<entry><author>` | items[].authors[0].name | — |
+| Description | `<item><description>` | `<entry><summary type="html">` | items[].summary | `<item><description>` (recommended) |
+| Content (HTML) | content:encoded (CDATA) | `<entry><content type="html">` | items[].content_html | — |
+| ID | `<item><guid>` (with isPermaLink) | `<entry><id>` (generated if empty) | items[].id (generated if empty) | `<item><guid>` (generated if empty) |
 | IsPermaLink | guid@isPermaLink | — | — | guid@isPermaLink |
-| Updated | <item><pubDate> (RFC1123Z; Created or Updated) | <entry><updated> (RFC3339) | items[].date_modified | <item><pubDate> (RFC1123Z) |
-| Created | <item><pubDate> (RFC1123Z) | <entry><published> (RFC3339) | items[].date_published | <item><pubDate> (RFC1123Z) |
-| Enclosure.Url / Type / Length | <item><enclosure url type length> | <entry><link rel="enclosure" ...> | image -> items[].image; else attachments[] | <item><enclosure> (required) |
+| Updated | `<item><pubDate>` (RFC1123Z; Created or Updated) | `<entry><updated>` (RFC3339) | items[].date_modified | `<item><pubDate>` (RFC1123Z) |
+| Created | `<item><pubDate>` (RFC1123Z) | `<entry><published>` (RFC3339) | items[].date_published | `<item><pubDate>` (RFC1123Z) |
+| Enclosure.Url / Type / Length | `<item><enclosure url type length>` | `<entry><link rel="enclosure" ...>` | image -> items[].image; else attachments[] | `<item><enclosure>` (required) |
 | DurationSeconds | — | — | attachments[].duration_in_seconds | itunes:duration |
 | Extensions | item: custom nodes | entry: custom nodes | flattened into item (name: text) | item: custom nodes |
 
