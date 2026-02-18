@@ -9,8 +9,6 @@ import (
 	"github.com/jo-hoe/gofeedx"
 )
 
-// intPtr is a small helper to build optional int values for PSP item config.
-func intPtr(i int) *int { return &i }
 
 // uuidV5 computes a UUID v5 from a namespace UUID string and a name per RFC 4122.
 // It is used here to compute expected podcast:guid values without external resources.
@@ -104,7 +102,7 @@ func newBaseEpisode() *gofeedx.Item {
 	}
 }
 
-// buildValidPSPFeed creates a PSP feed including all required PSP-1 channel elements
+// buildValidPSPFeed creates a PSP feed including required elements from generic fields
 // and a single compliant item, then returns XML output.
 func buildValidPSPFeed(t *testing.T) (string, error) {
 	t.Helper()
@@ -113,29 +111,14 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	item := newBaseEpisode()
 	feed.Add(item)
 
-	// Configure PSP channel fields directly on Feed
-	explicit := false
-	locked := true
+	// Configure channel fields available in generic structs
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Author = &gofeedx.Author{Name: "My Podcast Team"}
-	feed.ItunesType = "episodic"
-	feed.Categories = append(feed.Categories, &gofeedx.Category{
-		Text: "Technology",
-		Sub:  []*gofeedx.Category{{Text: "Software"}},
-	})
-	feed.PodcastLocked = &locked
-	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
-	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support"}
-	feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	// Configure PSP item fields directly on Item
+	// Configure item fields available in generic structs
 	item.DurationSeconds = 1801
-	item.ItunesEpisodeType = "full"
-	item.Transcripts = []gofeedx.PSPTranscript{
-		{Url: "https://example.com/ep1.vtt", Type: "text/vtt"},
-	}
 
 	if err := feed.ValidatePSP(); err != nil {
 		return "", err
@@ -143,8 +126,8 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	return feed.ToPSPRSSString()
 }
 
-// Test that a fully-configured feed passes validation and includes required namespaces
-// and PSP-1 required elements at both channel and item level.
+// Test that a configured feed passes validation and includes expected namespaces
+// and PSP elements derivable from generic structs.
 func TestPSPValidMinimalFeed(t *testing.T) {
 	xml, err := buildValidPSPFeed(t)
 	if err != nil {
@@ -178,12 +161,9 @@ func TestPSPValidMinimalFeed(t *testing.T) {
 	if !strings.Contains(xml, "<itunes:category") {
 		t.Errorf("missing required itunes:category element")
 	}
-	if !strings.Contains(xml, "<itunes:explicit>false</itunes:explicit>") {
-		t.Errorf("missing required itunes:explicit element or wrong value")
-	}
-	if !strings.Contains(xml, `<itunes:image href="https://example.com/artwork.jpg" sop="`) && // guard against attribute reordering
-		!strings.Contains(xml, `<itunes:image href="https://example.com/artwork.jpg"`) {
-		t.Errorf("missing required itunes:image element with href")
+	// itunes:image derived from generic Image.Url
+	if !strings.Contains(xml, `<itunes:image`) || !strings.Contains(xml, `href="https://example.com/artwork.jpg"`) {
+		t.Errorf("missing itunes:image element with href from Image.Url")
 	}
 
 	// <atom:link rel="self" type="application/rss+xml"/>
@@ -215,13 +195,7 @@ func TestPSPValidMinimalFeed(t *testing.T) {
 
 	// Recommended item elements added by config
 	if !strings.Contains(xml, "<itunes:duration>1801</itunes:duration>") {
-		t.Errorf("missing recommended itunes:duration")
-	}
-	// podcast:transcript requires url and type
-	if !strings.Contains(xml, `<podcast:transcript`) ||
-		!strings.Contains(xml, `url="https://example.com/ep1.vtt"`) ||
-		!strings.Contains(xml, `type="text/vtt"`) {
-		t.Errorf("missing or incomplete podcast:transcript element")
+		t.Errorf("missing recommended itunes:duration from DurationSeconds")
 	}
 }
 
@@ -233,10 +207,8 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	item.Content = "<p>Welcome</p>"
 	feed.Add(item)
 
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	item.DurationSeconds = 10
 
@@ -274,12 +246,9 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 		},
 	})
 
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/art.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/art.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
-	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
 
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("Validate failed: %v", err)
@@ -308,7 +277,7 @@ func TestPSPValidateFailsMissingRequiredChannelElements(t *testing.T) {
 	}
 	feed.Add(newBaseEpisode())
 
-	// Intentionally omit: itunes:category, itunes:image, itunes:explicit, atom self
+	// Intentionally omit categories and atom self (FeedURL)
 	if err := feed.ValidatePSP(); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when required channel elements are missing")
 	}
@@ -328,10 +297,8 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 	}
 	feed.Add(item)
 
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err == nil {
@@ -344,10 +311,8 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -366,52 +331,15 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	}
 }
 
-// Test that when itunes:type is serial, itunes:episode is required per item.
-func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
+// Test that itunes:category is emitted for top-level categories.
+func TestPSPItunesCategoryTopLevelOnly(t *testing.T) {
 	feed := newBaseFeed()
 	feed.Add(newBaseEpisode())
 
-	// Mark feed as serial but do not set itunes:episode on the item -> expect validation failure
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.ItunesType = "serial"
-	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-	feed.Items[0].ItunesEpisodeType = "full"
-
-	if err := feed.ValidatePSP(); err == nil {
-		t.Fatalf("expected ValidatePSP to fail for serial feed without itunes:episode on item")
-	}
-
-	// Now set the episode number and expect success
-	feedOK := newBaseFeed()
-	feedOK.Add(newBaseEpisode())
-	feedOK.FeedURL = "https://example.com/podcast.rss"
-	feedOK.ItunesImageHref = "https://example.com/artwork.jpg"
-	feedOK.ItunesExplicit = &explicit
-	feedOK.ItunesType = "serial"
-	feedOK.Categories = append(feedOK.Categories, &gofeedx.Category{Text: "Technology"})
-	feedOK.Items[0].ItunesEpisode = intPtr(1)
-	feedOK.Items[0].ItunesEpisodeType = "full"
-
-	if err := feedOK.ValidatePSP(); err != nil {
-		t.Fatalf("expected ValidatePSP to succeed for serial feed with itunes:episode, got: %v", err)
-	}
-}
-
-// Test that itunes:category with subcategory appears as nested elements.
-func TestPSPItunesCategoryStructure(t *testing.T) {
-	feed := newBaseFeed()
-	feed.Add(newBaseEpisode())
-
-	explicit := false
-	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{
 		Text: "Technology",
-		Sub:  []*gofeedx.Category{{Text: "Software"}},
 	})
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -422,173 +350,20 @@ func TestPSPItunesCategoryStructure(t *testing.T) {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
 
-	// At minimum ensure both category texts appear; nested structure is encouraged by spec
+	// Ensure top-level category appears
 	if !strings.Contains(xml, `itunes:category text="Technology"`) {
 		t.Errorf("missing itunes:category Technology")
 	}
-	if !strings.Contains(xml, `itunes:category text="Software"`) {
-		t.Errorf("missing nested itunes:category Software")
-	}
 }
 
-// Test that itunes:explicit true is rendered for items/channels when configured.
-func TestPSPItunesExplicitBooleanValues(t *testing.T) {
-	feed := newBaseFeed()
-	feed.Add(newBaseEpisode())
-
-	explicit := true
-	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-	feed.Items[0].ItunesEpisodeType = "full"
-
-	if err := feed.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml, err := feed.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-
-	if !strings.Contains(xml, "<itunes:explicit>true</itunes:explicit>") {
-		t.Errorf("expected itunes:explicit true at channel level")
-	}
-}
-
-// Additional PSP behaviors moved from psp_extra_test.go
-
-func TestPSPPodcastLockedValues(t *testing.T) {
-	// locked = true -> "yes"
+// Test that PSP-only fields not represented in generic structs are not emitted by default.
+func TestPSPDoesNotEmitExplicitOrLocked(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
 	feed.Add(item)
 
-	explicit := false
-	lockedTrue := true
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-	feed.PodcastLocked = &lockedTrue
-
-	if err := feed.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml, err := feed.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-	if !strings.Contains(xml, "<podcast:locked>yes</podcast:locked>") {
-		t.Errorf("expected podcast:locked yes when true")
-	}
-
-	// locked = false -> "no"
-	feed2 := newBaseFeed()
-	feed2.Add(newBaseEpisode())
-	feed2.FeedURL = "https://example.com/podcast.rss"
-	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed2.ItunesExplicit = &explicit
-	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
-	lockedFalse := false
-	feed2.PodcastLocked = &lockedFalse
-
-	if err := feed2.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml2, err := feed2.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-	if !strings.Contains(xml2, "<podcast:locked>no</podcast:locked>") {
-		t.Errorf("expected podcast:locked no when false")
-	}
-}
-
-func TestPSPPodcastFundingAndTXT(t *testing.T) {
-	feed := newBaseFeed()
-	item := newBaseEpisode()
-	feed.Add(item)
-
-	explicit := false
-	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-
-	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"}
-	feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
-
-	if err := feed.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml, err := feed.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-
-	if !strings.Contains(xml, `<podcast:funding url="https://example.com/support">Support Us</podcast:funding>`) {
-		t.Errorf("expected podcast:funding element with url attr and label text")
-	}
-	if !strings.Contains(xml, `<podcast:txt purpose="verify">ownership-token</podcast:txt>`) {
-		t.Errorf("expected podcast:txt element with purpose attr and value")
-	}
-}
-
-func TestPSPItunesTypeValues(t *testing.T) {
-	// episodic should appear
-	feed := newBaseFeed()
-	feed.Add(newBaseEpisode())
-	explicit := false
-	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
-	feed.ItunesType = "episodic"
-
-	if err := feed.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml, err := feed.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-	if !strings.Contains(xml, "<itunes:type>episodic</itunes:type>") {
-		t.Errorf("expected itunes:type episodic")
-	}
-
-	// invalid value should be omitted
-	feed2 := newBaseFeed()
-	feed2.Add(newBaseEpisode())
-	feed2.FeedURL = "https://example.com/podcast.rss"
-	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed2.ItunesExplicit = &explicit
-	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
-	feed2.ItunesType = "something-else" // invalid
-
-	if err := feed2.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
-	}
-	xml2, err := feed2.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-	if strings.Contains(xml2, "<itunes:type>") {
-		t.Errorf("did not expect itunes:type to be emitted for invalid value")
-	}
-}
-
-func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
-	// valid value
-	feed := newBaseFeed()
-	item := newBaseEpisode()
-	item.ItunesEpisodeType = "trailer"
-	feed.Add(item)
-
-	explicit := false
-	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -598,32 +373,16 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
-	if !strings.Contains(xml, "<itunes:episodeType>trailer</itunes:episodeType>") {
-		t.Errorf("expected itunes:episodeType trailer")
-	}
 
-	// invalid value should be omitted
-	feed2 := newBaseFeed()
-	item2 := newBaseEpisode()
-	item2.ItunesEpisodeType = "demo"
-	feed2.Add(item2)
-	feed2.FeedURL = "https://example.com/podcast.rss"
-	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed2.ItunesExplicit = &explicit
-	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
-
-	if err := feed2.ValidatePSP(); err != nil {
-		t.Fatalf("ValidatePSP failed: %v", err)
+	if strings.Contains(xml, "<itunes:explicit>") {
+		t.Errorf("did not expect itunes:explicit to be emitted without generic field")
 	}
-	xml2, err := feed2.ToPSPRSSString()
-	if err != nil {
-		t.Fatalf("ToPSPRSS failed: %v", err)
-	}
-	if strings.Contains(xml2, "<itunes:episodeType>") {
-		t.Errorf("did not expect itunes:episodeType to be emitted for invalid value")
+	if strings.Contains(xml, "<podcast:locked>") {
+		t.Errorf("did not expect podcast:locked to be emitted without generic field")
 	}
 }
 
+// Test that channel description limit is enforced.
 func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 	// Construct a description of 4001 bytes
 	long := strings.Repeat("a", 4001)
@@ -636,13 +395,45 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 	}
 	feed.Add(newBaseEpisode())
 
-	explicit := false
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when channel description > 4000 bytes")
+	}
+}
+
+// Test that PSP-specific elements can still be injected via Extensions.
+func TestPSPExtensionsAllowed(t *testing.T) {
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	feed.Add(item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	// Add PSP-like elements via ExtensionNode
+	feed.Extensions = []gofeedx.ExtensionNode{
+		{Name: "podcast:funding", Attrs: map[string]string{"url": "https://example.com/support"}, Text: "Support Us"},
+	}
+	item.Extensions = []gofeedx.ExtensionNode{
+		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
+	}
+
+	if err := feed.ValidatePSP(); err != nil {
+		t.Fatalf("ValidatePSP failed: %v", err)
+	}
+	xmlStr, err := feed.ToPSPRSSString()
+	if err != nil {
+		t.Fatalf("ToPSPRSS failed: %v", err)
+	}
+
+	if !strings.Contains(xmlStr, "<podcast:funding") || !strings.Contains(xmlStr, `url="https://example.com/support"`) {
+		t.Errorf("expected podcast:funding extension in PSP output")
+	}
+	if !strings.Contains(xmlStr, "<itunes:image") || !strings.Contains(xmlStr, `href="https://example.com/cover.jpg"`) {
+		t.Errorf("expected itunes:image extension in PSP item output")
 	}
 }

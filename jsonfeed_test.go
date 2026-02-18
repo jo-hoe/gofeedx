@@ -265,19 +265,10 @@ func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	// Configure PSP-only fields that should not leak into JSON Feed
-	explicit := true
+	// Configure some generic fields; ensure PSP-only fields do not leak into JSON
 	f.FeedURL = "https://example.com/podcast.rss"
-	f.ItunesImageHref = "https://example.com/artwork.jpg"
-	f.ItunesExplicit = &explicit
-	f.ItunesType = "episodic"
 	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
-	f.PodcastLocked = &explicit
-	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
-	f.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}
-
 	item.DurationSeconds = 99
-	item.ItunesEpisodeType = "bonus"
 
 	js, err := f.ToJSONString()
 	if err != nil {

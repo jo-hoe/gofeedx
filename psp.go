@@ -346,7 +346,7 @@ func (f *Feed) ValidatePSP() error {
 func (p *PSP) wrapRoot(ch *PSPChannel) *PSPRSSRoot {
 	needsContent := false
 	// Trigger content namespace if any item has Content or Description includes HTML tags (heuristic)
-	for _, it := range p.Feed.Items {
+	for _, it := range p.Items {
 		if strings.TrimSpace(it.Content) != "" {
 			needsContent = true
 			break
@@ -370,51 +370,51 @@ func (p *PSP) wrapRoot(ch *PSPChannel) *PSPRSSRoot {
 }
 
 func (p *PSP) buildChannel() *PSPChannel {
-	pub := anyTimeFormat(time.RFC1123Z, p.Feed.Created, p.Feed.Updated)
-	build := anyTimeFormat(time.RFC1123Z, p.Feed.Updated)
+	pub := anyTimeFormat(time.RFC1123Z, p.Created, p.Updated)
+	build := anyTimeFormat(time.RFC1123Z, p.Updated)
 	linkHref := ""
-	if p.Feed.Link != nil {
-		linkHref = p.Feed.Link.Href
+	if p.Link != nil {
+		linkHref = p.Link.Href
 	}
 	ch := &PSPChannel{
-		Title:         p.Feed.Title,
-		Description:   p.Feed.Description,
+		Title:         p.Title,
+		Description:   p.Description,
 		Link:          linkHref,
-		Language:      p.Feed.Language,
-		Copyright:     p.Feed.Copyright,
+		Language:      p.Language,
+		Copyright:     p.Copyright,
 		PubDate:       pub,
 		LastBuildDate: build,
 	}
 	// atom:link rel="self"
-	if strings.TrimSpace(p.Feed.FeedURL) != "" {
-		ch.AtomSelf = &PSPAtomLink{Href: p.Feed.FeedURL, Rel: "self", Type: "application/rss+xml"}
+	if strings.TrimSpace(p.FeedURL) != "" {
+		ch.AtomSelf = &PSPAtomLink{Href: p.FeedURL, Rel: "self", Type: "application/rss+xml"}
 	}
 
 	// iTunes channel fields (from generic feed where available)
-	if p.Feed.Image != nil && strings.TrimSpace(p.Feed.Image.Url) != "" {
-		ch.ItunesImage = &ItunesImage{Href: p.Feed.Image.Url}
+	if p.Image != nil && strings.TrimSpace(p.Image.Url) != "" {
+		ch.ItunesImage = &ItunesImage{Href: p.Image.Url}
 	}
-	if p.Feed.Author != nil && strings.TrimSpace(p.Feed.Author.Name) != "" {
-		ch.ItunesAuthor = p.Feed.Author.Name
+	if p.Author != nil && strings.TrimSpace(p.Author.Name) != "" {
+		ch.ItunesAuthor = p.Author.Name
 	}
-	ch.ItunesCategories = convertCategories(p.Feed.Categories)
+	ch.ItunesCategories = convertCategories(p.Categories)
 
 	// podcast channel fields (limited by generic feed data)
-	if strings.TrimSpace(p.Feed.ID) != "" {
+	if strings.TrimSpace(p.ID) != "" {
 		// Treat Feed.ID as the authoritative podcast GUID when provided
-		ch.PodcastGuid = p.Feed.ID
-	} else if strings.TrimSpace(p.Feed.FeedURL) != "" {
-		ch.PodcastGuid = computePodcastGuid(p.Feed.FeedURL)
+		ch.PodcastGuid = p.ID
+	} else if strings.TrimSpace(p.FeedURL) != "" {
+		ch.PodcastGuid = computePodcastGuid(p.FeedURL)
 	}
 
 	// Items
-	for _, it := range p.Feed.Items {
+	for _, it := range p.Items {
 		ch.Items = append(ch.Items, p.buildItem(it))
 	}
 
 	// Custom channel nodes
-	if len(p.Feed.Extensions) > 0 {
-		ch.Extra = append(ch.Extra, p.Feed.Extensions...)
+	if len(p.Extensions) > 0 {
+		ch.Extra = append(ch.Extra, p.Extensions...)
 	}
 	return ch
 }
@@ -455,12 +455,6 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 	return pi
 }
 
-func boolToTrueFalse(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
-}
 
 // convertCategories maps generic Categories to iTunes category XML structure (including nested subcategories).
 func convertCategories(cats []*Category) []*ItunesCategory {

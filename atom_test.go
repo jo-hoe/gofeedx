@@ -216,20 +216,9 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 	item := newAtomBaseItem()
 	feed.Add(item)
 
-	// Configure PSP-only fields
-	explicit := false
+	// Configure some generic fields expected not to leak PSP namespaces
 	feed.FeedURL = "https://example.com/podcast.rss"
-	feed.ItunesImageHref = "https://example.com/artwork.jpg"
-	feed.ItunesExplicit = &explicit
-	feed.ItunesType = "serial"
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
-	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
-	feed.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}
-
-	ep := 2
-	item.ItunesEpisode = &ep
-	item.ItunesEpisodeType = "trailer"
-	item.Transcripts = []gofeedx.PSPTranscript{{Url: "https://example.com/t2.vtt", Type: "text/vtt"}}
 
 	// Serialize as Atom
 	xmlStr, err := feed.ToAtomString()

@@ -231,29 +231,11 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	item := newRSSBaseItem()
 	f.Add(item)
 
-	// Configure PSP-only fields that should not leak into plain RSS
-	explicit := true
-	locked := true
-	f.FeedURL = "https://example.com/podcast.rss" // PSP adds atom:link rel=self
-	f.ItunesImageHref = "https://example.com/artwork.jpg"
-	f.ItunesExplicit = &explicit
-	f.ItunesType = "episodic"
-	f.ItunesComplete = true
+	// Configure some generic fields; ensure PSP-only fields do not leak into plain RSS
+	f.FeedURL = "https://example.com/podcast.rss" // PSP adds atom:link rel=self - should not appear in plain RSS writer
 	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
-	f.PodcastLocked = &locked
-	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
-	f.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}
-
 	item.DurationSeconds = 42
-	item.ItunesImageHref = "https://example.com/item.jpg"
-	item.ItunesExplicit = &explicit
-	ep := 1
-	se := 1
-	item.ItunesEpisode = &ep
-	item.ItunesSeason = &se
-	item.ItunesEpisodeType = "full"
-	item.ItunesBlock = false
-	item.Transcripts = []gofeedx.PSPTranscript{{Url: "https://example.com/t.vtt", Type: "text/vtt"}}
+	f.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 
 	xmlStr, err := f.ToRSSString()
 	if err != nil {
