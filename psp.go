@@ -71,7 +71,7 @@ type PSPChannel struct {
 	Items []*PSPItem `xml:"item"`
 
 	// Custom channel nodes
-	Extra []XMLNode `xml:",any"`
+	Extra []ExtensionNode `xml:",any"`
 }
 
 // PSPAtomLink emits atom:link
@@ -163,7 +163,7 @@ type PSPItem struct {
 	Transcripts []PSPTranscript `xml:"podcast:transcript,omitempty"`
 
 	// Extra custom nodes
-	Extra []XMLNode `xml:",any"`
+	Extra []ExtensionNode `xml:",any"`
 }
 
 // ItunesBlock emits "yes"
@@ -484,8 +484,8 @@ func (p *PSPFeed) buildChannel() *PSPChannel {
 	}
 
 	// Custom channel nodes
-	if len(p.src.CustomChannelNodes) > 0 {
-		ch.Extra = append(ch.Extra, p.src.CustomChannelNodes...)
+	if len(p.src.Extensions) > 0 {
+		ch.Extra = append(ch.Extra, p.src.Extensions...)
 	}
 	return ch
 }
@@ -547,8 +547,8 @@ func (p *PSPFeed) buildItem(index int, it *Item) *PSPItem {
 	}
 
 	// Custom item nodes from src
-	if len(it.CustomItemNodes) > 0 {
-		pi.Extra = append(pi.Extra, it.CustomItemNodes...)
+	if len(it.Extensions) > 0 {
+		pi.Extra = append(pi.Extra, it.Extensions...)
 	}
 	return pi
 }

@@ -76,6 +76,7 @@ type JSONItem struct {
 	Authors       []*JSONAuthor    `json:"authors,omitempty"` // v1.1
 	Tags          []string         `json:"tags,omitempty"`
 	Attachments   []JSONAttachment `json:"attachments,omitempty"`
+	Exts          []ExtensionNode  `json:"-"`
 }
 
 // JSONHub describes an endpoint that can be used to subscribe to real-time notifications.
@@ -101,6 +102,7 @@ type JSONFeed struct {
 	Expired     *bool         `json:"expired,omitempty"`
 	Hubs        []*JSONHub    `json:"hubs,omitempty"`
 	Items       []*JSONItem   `json:"items,omitempty"`
+	Exts        []ExtensionNode `json:"-"`
 }
 
 // JSON is used to convert a generic Feed to a JSONFeed.
@@ -120,6 +122,30 @@ func (f *JSONFeed) ToJSON() (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+// MarshalJSON implements custom JSON serialization to include flattened extensions
+func (f *JSONFeed) MarshalJSON() ([]byte, error) {
+	// Marshal known fields first
+	type Alias JSONFeed
+	a := (*Alias)(f)
+	base, err := json.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	// Convert to map to inject custom keys
+	var m map[string]any
+	if err := json.Unmarshal(base, &m); err != nil {
+		return nil, err
+	}
+	// Flatten extensions: name -> text (attributes/children ignored)
+	for _, n := range f.Exts {
+		if n.Name == "" || n.Text == "" {
+			continue
+		}
+		m[n.Name] = n.Text
+	}
+	return json.Marshal(m)
 }
 
 // JSONFeed creates a new JSONFeed with a generic Feed struct's data.
@@ -144,7 +170,32 @@ func (f *JSON) JSONFeed() *JSONFeed {
 	for _, e := range f.Items {
 		feed.Items = append(feed.Items, newJSONItem(e))
 	}
+	// Copy unified extensions for JSON flattening
+	feed.Exts = f.Extensions
 	return feed
+}
+
+func (ji *JSONItem) MarshalJSON() ([]byte, error) {
+	// Marshal known fields first
+	type Alias JSONItem
+	a := (*Alias)(ji)
+	base, err := json.Marshal(a)
+	if err != nil {
+		return nil, err
+	}
+	// Convert to map to inject custom keys
+	var m map[string]any
+	if err := json.Unmarshal(base, &m); err != nil {
+		return nil, err
+	}
+	// Flatten extensions: name -> text (attributes/children ignored)
+	for _, n := range ji.Exts {
+		if n.Name == "" || n.Text == "" {
+			continue
+		}
+		m[n.Name] = n.Text
+	}
+	return json.Marshal(m)
 }
 
 func newJSONItem(i *Item) *JSONItem {
@@ -153,6 +204,7 @@ func newJSONItem(i *Item) *JSONItem {
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present
+		Exts:        i.Extensions,
 	}
 
 	if i.Link != nil {

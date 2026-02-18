@@ -58,7 +58,7 @@ type RssItem struct {
 	Guid        *RssGuid
 	PubDate     string    `xml:"pubDate,omitempty"`
 	Source      string    `xml:"source,omitempty"`
-	Extra       []XMLNode `xml:",any"` // custom nodes at item scope
+	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
 type RssFeed struct {
@@ -82,7 +82,7 @@ type RssFeed struct {
 	SkipDays      string    `xml:"skipDays,omitempty"`
 	Image         *RssImage `xml:"image,omitempty"`
 	Items         []*RssItem `xml:"item"`
-	Extra         []XMLNode `xml:",any"` // custom nodes at channel scope
+	Extra         []ExtensionNode `xml:",any"` // custom nodes at channel scope
 }
 
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
@@ -149,9 +149,9 @@ func (r *Rss) RssFeed() *RssFeed {
 		channel.Items = append(channel.Items, newRssItem(it))
 	}
 
-	// append custom channel nodes
-	if len(r.CustomChannelNodes) > 0 {
-		channel.Extra = append(channel.Extra, r.CustomChannelNodes...)
+	// append extensions
+	if len(r.Extensions) > 0 {
+		channel.Extra = append(channel.Extra, r.Extensions...)
 	}
 	return channel
 }
@@ -202,9 +202,9 @@ func newRssItem(i *Item) *RssItem {
 	if i.Author != nil {
 		item.Author = i.Author.Name
 	}
-	// append custom item nodes
-	if len(i.CustomItemNodes) > 0 {
-		item.Extra = append(item.Extra, i.CustomItemNodes...)
+	// append extensions
+	if len(i.Extensions) > 0 {
+		item.Extra = append(item.Extra, i.Extensions...)
 	}
 	return item
 }

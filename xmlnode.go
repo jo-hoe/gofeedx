@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
-// XMLNode represents a generic XML element that can be injected into channel/feed
+ // ExtensionNode represents a generic extension element that can be injected into channel/feed
 // or item/entry scopes for RSS/PSP/Atom outputs. It avoids external dependencies
 // and uses encoding/xml for safe construction.
 //
@@ -18,19 +18,19 @@ import (
 //   encoding/xml does not expose an easy CDATA API. If you need embedded HTML,
 //   prefer standard fields (e.g., Content/Description which are supported in
 //   RSS via content:encoded and CDATA) or submit a feature request to extend this.
-type XMLNode struct {
+type ExtensionNode struct {
 	// Name is the element name, may include a namespace prefix (e.g., "itunes:image").
 	Name string
 	// Attrs contains element attributes as a map of name -> value. Names may include prefixes.
 	Attrs map[string]string
 	// Text is text content for the node (escaped).
 	Text string
-	// Children are nested XMLNodes.
-	Children []XMLNode
+	// Children are nested ExtensionNodes.
+	Children []ExtensionNode
 }
 
 // MarshalXML implements xml.Marshaler to encode XMLNode as arbitrary XML.
-func (n XMLNode) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
+func (n ExtensionNode) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 	start := xml.StartElement{
 		Name: xml.Name{Local: n.Name},
 	}

@@ -61,7 +61,7 @@ type AtomEntry struct {
 	Links       []AtomLink   // required if no child 'content' elements
 	Summary     *AtomSummary // required if content has src or content is base64
 	Author      *AtomAuthor  // required if feed lacks an author
-	Extra       []XMLNode    `xml:",any"` // custom extension nodes
+	Extra       []ExtensionNode    `xml:",any"` // custom extension nodes
 }
 
 type AtomFeed struct {
@@ -79,7 +79,7 @@ type AtomFeed struct {
 	Author      *AtomAuthor `xml:"author,omitempty"`
 	Contributor *AtomContributor
 	Entries     []*AtomEntry `xml:"entry"`
-	Extra       []XMLNode    `xml:",any"` // custom extension nodes
+	Extra       []ExtensionNode    `xml:",any"` // custom extension nodes
 }
 
 type Atom struct {
@@ -130,9 +130,9 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		feed.Entries = append(feed.Entries, newAtomEntry(e))
 	}
 
-	// Custom channel/feed nodes
-	if len(a.CustomChannelNodes) > 0 {
-		feed.Extra = append(feed.Extra, a.CustomChannelNodes...)
+	// Custom channel/feed extensions
+	if len(a.Extensions) > 0 {
+		feed.Extra = append(feed.Extra, a.Extensions...)
 	}
 	return feed
 }
@@ -189,9 +189,9 @@ func newAtomEntry(i *Item) *AtomEntry {
 		x.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: name, Email: email}}
 	}
 
-	// Custom item/entry nodes
-	if len(i.CustomItemNodes) > 0 {
-		x.Extra = append(x.Extra, i.CustomItemNodes...)
+	// Custom item/entry extensions
+	if len(i.Extensions) > 0 {
+		x.Extra = append(x.Extra, i.Extensions...)
 	}
 	return x
 }

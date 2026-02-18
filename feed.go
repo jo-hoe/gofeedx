@@ -50,8 +50,8 @@ type Item struct {
 	Enclosure   *Enclosure
 	Content     string // HTML content (RSS content:encoded, Atom content, JSON content_html)
 
-	// CustomItemNodes holds arbitrary XML nodes to append in item scope (RSS/PSP/Atom).
-	CustomItemNodes []XMLNode
+	// Extensions holds arbitrary extension nodes to append in item/entry scope (RSS/PSP/Atom) and to be flattened for JSON.
+	Extensions []ExtensionNode
 }
 
 // Feed represents a feed/channel across formats.
@@ -69,8 +69,8 @@ type Feed struct {
 	Image       *Image
 	Language    string
 
-	// CustomChannelNodes holds arbitrary XML nodes to append in channel/feed scope (RSS/PSP/Atom).
-	CustomChannelNodes []XMLNode
+	// Extensions holds arbitrary extension nodes to append in channel/feed scope (RSS/PSP/Atom) and to be flattened for JSON.
+	Extensions []ExtensionNode
 }
 
 // Add appends a new item to the feed.
