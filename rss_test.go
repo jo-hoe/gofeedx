@@ -237,10 +237,9 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	f.AtomSelfHref = "https://example.com/podcast.rss" // PSP adds atom:link rel=self
 	f.ItunesImageHref = "https://example.com/artwork.jpg"
 	f.ItunesExplicit = &explicit
-	f.ItunesAuthor = "Team"
 	f.ItunesType = "episodic"
 	f.ItunesComplete = true
-	f.ItunesCategories = append(f.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
 	f.PodcastLocked = &locked
 	f.PodcastGuid = "a-guid"
 	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}

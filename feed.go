@@ -19,6 +19,14 @@ type Author struct {
 	Email string
 }
 
+// Category represents a generic hierarchical category (e.g., for feeds).
+// PSP maps all Categories to itunes:category (including nested subcategories).
+// Atom/RSS writers will use only the first top-level category when present.
+type Category struct {
+	Text string
+	Sub  []*Category
+}
+
 // Image represents a channel-level image.
 type Image struct {
 	Url    string
@@ -86,10 +94,9 @@ type Feed struct {
 	AtomSelfHref     string
 	ItunesImageHref  string
 	ItunesExplicit   *bool
-	ItunesAuthor     string
 	ItunesType       string // "episodic" or "serial"
 	ItunesComplete   bool
-	ItunesCategories []*ItunesCategory
+	Categories []*Category
 	PodcastLocked    *bool
 	PodcastGuidSeed  string
 	PodcastGuid      string

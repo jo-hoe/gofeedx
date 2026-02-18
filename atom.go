@@ -126,6 +126,11 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: a.Author.Name, Email: a.Author.Email}}
 	}
 
+	// Map generic categories: Atom uses only the first top-level category when present
+	if len(a.Categories) > 0 && a.Categories[0] != nil && a.Categories[0].Text != "" {
+		feed.Category = a.Categories[0].Text
+	}
+
 	for _, e := range a.Items {
 		feed.Entries = append(feed.Entries, newAtomEntry(e))
 	}

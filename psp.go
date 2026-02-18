@@ -300,7 +300,7 @@ func (f *Feed) ValidatePSP() error {
 	if strings.TrimSpace(f.Language) == "" {
 		return errors.New("psp: channel language required")
 	}
-	if len(f.ItunesCategories) == 0 {
+	if len(f.Categories) == 0 {
 		return errors.New("psp: at least one itunes:category required")
 	}
 	if f.ItunesExplicit == nil {
@@ -408,8 +408,8 @@ func (p *PSP) buildChannel() *PSPChannel {
 	if p.Feed.ItunesExplicit != nil {
 		ch.ItunesExplicit = &ItunesExplicit{Value: boolToTrueFalse(*p.Feed.ItunesExplicit)}
 	}
-	if p.Feed.ItunesAuthor != "" {
-		ch.ItunesAuthor = p.Feed.ItunesAuthor
+	if p.Feed.Author != nil && strings.TrimSpace(p.Feed.Author.Name) != "" {
+		ch.ItunesAuthor = p.Feed.Author.Name
 	}
 	itype := strings.ToLower(strings.TrimSpace(p.Feed.ItunesType))
 	if itype == "serial" || itype == "episodic" {
@@ -418,7 +418,7 @@ func (p *PSP) buildChannel() *PSPChannel {
 	if p.Feed.ItunesComplete {
 		ch.ItunesComplete = &ItunesComplete{Value: "yes"}
 	}
-	ch.ItunesCategories = append(ch.ItunesCategories, p.Feed.ItunesCategories...)
+	ch.ItunesCategories = convertCategories(p.Feed.Categories)
 
 	// podcast channel fields
 	if p.Feed.PodcastLocked != nil {
@@ -516,6 +516,22 @@ func boolToTrueFalse(b bool) string {
 		return "true"
 	}
 	return "false"
+}
+
+// convertCategories maps generic Categories to iTunes category XML structure (including nested subcategories).
+func convertCategories(cats []*Category) []*ItunesCategory {
+	var out []*ItunesCategory
+	for _, c := range cats {
+		if c == nil || strings.TrimSpace(c.Text) == "" {
+			continue
+		}
+		ic := &ItunesCategory{Text: c.Text}
+		if len(c.Sub) > 0 {
+			ic.Sub = convertCategories(c.Sub)
+		}
+		out = append(out, ic)
+	}
+	return out
 }
 
 // computePodcastGuid generates UUIDv5 from normalized feed URL (scheme-stripped, trailing slashes removed).

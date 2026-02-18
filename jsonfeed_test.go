@@ -271,7 +271,7 @@ func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 	f.ItunesImageHref = "https://example.com/artwork.jpg"
 	f.ItunesExplicit = &explicit
 	f.ItunesType = "episodic"
-	f.ItunesCategories = append(f.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
 	f.PodcastLocked = &explicit
 	f.PodcastGuid = "a-guid"
 	f.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}

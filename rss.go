@@ -144,6 +144,11 @@ func (r *Rss) RssFeed() *RssFeed {
 		Language:       r.Language,
 	}
 
+	// Map generic categories: RSS uses single category string; use first if present
+	if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
+		channel.Category = r.Categories[0].Text
+	}
+
 	// append items
 	for _, it := range r.Items {
 		channel.Items = append(channel.Items, newRssItem(it))

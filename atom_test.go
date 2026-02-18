@@ -222,7 +222,7 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.ItunesType = "serial"
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "News"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
 	feed.PodcastGuid = "a-guid"
 	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/fund", Text: "Fund us"}
 	feed.PodcastTXT = &gofeedx.PodcastTXT{Purpose: "verify", Value: "token"}

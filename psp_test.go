@@ -119,11 +119,11 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesAuthor = "My Podcast Team"
+	feed.Author = &gofeedx.Author{Name: "My Podcast Team"}
 	feed.ItunesType = "episodic"
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
+	feed.Categories = append(feed.Categories, &gofeedx.Category{
 		Text: "Technology",
-		Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
+		Sub:  []*gofeedx.Category{{Text: "Software"}},
 	})
 	feed.PodcastLocked = &locked
 	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
@@ -237,7 +237,7 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	item.ItunesDurationSeconds = 10
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -278,7 +278,7 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/art.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "News"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
 	feed.PodcastGuidSeed = "https://example.com/podcast.rss"
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -332,7 +332,7 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when enclosure attributes are missing")
@@ -348,7 +348,7 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
@@ -377,7 +377,7 @@ func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
 	feed.ItunesType = "serial"
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	feed.Items[0].ItunesEpisodeType = "full"
 
 	if err := feed.ValidatePSP(); err == nil {
@@ -391,7 +391,7 @@ func TestPSPSerialTypeRequiresEpisodeNumber(t *testing.T) {
 	feedOK.ItunesImageHref = "https://example.com/artwork.jpg"
 	feedOK.ItunesExplicit = &explicit
 	feedOK.ItunesType = "serial"
-	feedOK.ItunesCategories = append(feedOK.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feedOK.Categories = append(feedOK.Categories, &gofeedx.Category{Text: "Technology"})
 	feedOK.Items[0].ItunesEpisode = intPtr(1)
 	feedOK.Items[0].ItunesEpisodeType = "full"
 
@@ -409,9 +409,9 @@ func TestPSPItunesCategoryStructure(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{
+	feed.Categories = append(feed.Categories, &gofeedx.Category{
 		Text: "Technology",
-		Sub:  []*gofeedx.ItunesCategory{{Text: "Software"}},
+		Sub:  []*gofeedx.Category{{Text: "Software"}},
 	})
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -440,7 +440,7 @@ func TestPSPItunesExplicitBooleanValues(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	feed.Items[0].ItunesEpisodeType = "full"
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -469,7 +469,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	feed.PodcastLocked = &lockedTrue
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -489,7 +489,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 	feed2.AtomSelfHref = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
-	feed2.ItunesCategories = append(feed2.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
 	lockedFalse := false
 	feed2.PodcastLocked = &lockedFalse
 
@@ -514,7 +514,7 @@ func TestPSPPodcastFundingAndTXT(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	feed.PodcastFunding = &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"}
 	feed.PodcastTXT = &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"}
@@ -543,7 +543,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	feed.ItunesType = "episodic"
 
 	if err := feed.ValidatePSP(); err != nil {
@@ -563,7 +563,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	feed2.AtomSelfHref = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
-	feed2.ItunesCategories = append(feed2.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
 	feed2.ItunesType = "something-else" // invalid
 
 	if err := feed2.ValidatePSP(); err != nil {
@@ -589,7 +589,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
@@ -610,7 +610,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	feed2.AtomSelfHref = "https://example.com/podcast.rss"
 	feed2.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed2.ItunesExplicit = &explicit
-	feed2.ItunesCategories = append(feed2.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed2.Categories = append(feed2.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed2.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
@@ -640,7 +640,7 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 	feed.AtomSelfHref = "https://example.com/podcast.rss"
 	feed.ItunesImageHref = "https://example.com/artwork.jpg"
 	feed.ItunesExplicit = &explicit
-	feed.ItunesCategories = append(feed.ItunesCategories, &gofeedx.ItunesCategory{Text: "Technology"})
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
 	if err := feed.ValidatePSP(); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when channel description > 4000 bytes")
