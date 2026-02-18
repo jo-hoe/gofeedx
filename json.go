@@ -113,13 +113,18 @@ type JSON struct {
 	*Feed
 }
 
-// ToJSON encodes f into a JSON string. Returns an error if marshalling fails.
-func (f *JSON) ToJSON() (string, error) {
-	return f.JSONFeed().ToJSON()
+/*
+ToJSONString encodes f into a JSON string. Returns an error if marshalling fails.
+Use Feed.ToJSONFeed() to get the structured JSONFeed value.
+*/
+func (f *JSON) ToJSONString() (string, error) {
+	return f.JSONFeed().ToJSONString()
 }
 
-// ToJSON encodes f into a JSON string. Returns an error if marshalling fails.
-func (f *JSONFeed) ToJSON() (string, error) {
+/*
+ToJSONString encodes f into a JSON string. Returns an error if marshalling fails.
+*/
+func (f *JSONFeed) ToJSONString() (string, error) {
 	data, err := json.MarshalIndent(f, "", "  ")
 	if err != nil {
 		return "", err
@@ -281,11 +286,23 @@ func newJSONItem(i *Item) *JSONItem {
 	return item
 }
 
-// ToJSON creates a JSON Feed representation of this feed
-func (f *Feed) ToJSON() (string, error) {
+/*
+ToJSONString creates a JSON Feed representation of this feed as a string.
+Use ToJSONFeed() if you need the structured JSONFeed value for further processing.
+*/
+func (f *Feed) ToJSONString() (string, error) {
 	j := &JSON{f}
-	return j.ToJSON()
+	return j.ToJSONString()
 }
+
+/*
+ToJSONFeed returns the JSONFeed struct for this feed.
+*/
+func (f *Feed) ToJSONFeed() (*JSONFeed, error) {
+	j := &JSON{f}
+	return j.JSONFeed(), nil
+}
+
 
 // WriteJSON writes a JSON representation of this feed to the writer.
 func (f *Feed) WriteJSON(w io.Writer) error {

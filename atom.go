@@ -86,10 +86,22 @@ type Atom struct {
 	*Feed
 }
 
-// ToAtom creates an Atom 1.0 representation of this feed as string.
-func (f *Feed) ToAtom() (string, error) {
+/*
+ToAtomString creates an Atom 1.0 representation of this feed as a string.
+Use ToAtomFeed() if you need the structured root object for further processing.
+*/
+func (f *Feed) ToAtomString() (string, error) {
 	return ToXML(&Atom{f})
 }
+
+/*
+ToAtomFeed returns the Atom 1.0 root struct for this feed.
+*/
+func (f *Feed) ToAtomFeed() (*AtomFeed, error) {
+	a := &Atom{f}
+	return a.AtomFeed(), nil
+}
+
 
 // WriteAtom writes an Atom 1.0 representation of this feed to the writer.
 func (f *Feed) WriteAtom(w io.Writer) error {

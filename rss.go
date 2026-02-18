@@ -90,10 +90,24 @@ type Rss struct {
 	*Feed
 }
 
-// ToRSS creates an RSS 2.0 representation of this feed as string.
-func (f *Feed) ToRSS() (string, error) {
+/*
+ToRSSString creates an RSS 2.0 representation of this feed as a string.
+Use ToRSSFeed() if you need the structured root object for further processing.
+*/
+func (f *Feed) ToRSSString() (string, error) {
 	return ToXML(&Rss{f})
 }
+
+/*
+ToRSSFeed returns the RSS 2.0 root struct for this feed.
+*/
+func (f *Feed) ToRSSFeed() (*RssFeedXml, error) {
+	r := &Rss{f}
+	rf := r.RssFeed()
+	root, _ := rf.FeedXml().(*RssFeedXml)
+	return root, nil
+}
+
 
 // WriteRSS writes an RSS 2.0 representation of this feed to the writer.
 func (f *Feed) WriteRSS(w io.Writer) error {

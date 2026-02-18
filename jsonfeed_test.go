@@ -81,7 +81,7 @@ func TestJSONFeedRequiredFields(t *testing.T) {
 	f := newJSONBaseFeed()
 	f.Add(newJSONBaseItem())
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestJSONFeedItemsAndIds(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestJSONFeedDatesRFC3339(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestJSONFeedAuthorsV11(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestJSONFeedContentHTMLAndImageMapping(t *testing.T) {
 	}
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestJSONFeedExtensionsFlattened(t *testing.T) {
 	}
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestJSONFeedItemIdMustBeNonEmptyPerSpec(t *testing.T) {
 	item.ID = "" // non-conformant per spec
 	f.Add(item)
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 	item.DurationSeconds = 99
 	item.ItunesEpisodeType = "bonus"
 
-	js, err := f.ToJSON()
+js, err := f.ToJSONString()
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}

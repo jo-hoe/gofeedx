@@ -140,7 +140,7 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	if err := feed.ValidatePSP(); err != nil {
 		return "", err
 	}
-	return feed.ToPSPRSS()
+	return feed.ToPSPRSSString()
 }
 
 // Test that a fully-configured feed passes validation and includes required namespaces
@@ -243,7 +243,7 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("expected valid feed with HTML content, got error: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -284,7 +284,7 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("Validate failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -353,7 +353,7 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -417,7 +417,7 @@ func TestPSPItunesCategoryStructure(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -446,7 +446,7 @@ func TestPSPItunesExplicitBooleanValues(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -496,7 +496,7 @@ func TestPSPPodcastLockedValues(t *testing.T) {
 	if err := feed2.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml2, err := feed2.ToPSPRSS()
+	xml2, err := feed2.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -522,7 +522,7 @@ func TestPSPPodcastFundingAndTXT(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -549,7 +549,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestPSPItunesTypeValues(t *testing.T) {
 	if err := feed2.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml2, err := feed2.ToPSPRSS()
+	xml2, err := feed2.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -594,7 +594,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	if err := feed.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSS()
+	xml, err := feed.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -615,7 +615,7 @@ func TestPSPItemItunesEpisodeTypeValues(t *testing.T) {
 	if err := feed2.ValidatePSP(); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml2, err := feed2.ToPSPRSS()
+	xml2, err := feed2.ToPSPRSSString()
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}

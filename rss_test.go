@@ -72,7 +72,7 @@ func TestRSSChannelRequiredElementsPresent(t *testing.T) {
 	f := newRSSBaseFeed()
 	f.Add(newRSSBaseItem())
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestRSSContentNamespaceWhenContentEncoded(t *testing.T) {
 	item.Content = "<p>HTML Content</p>"
 	f.Add(item)
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestRSSEnclosureAttributesRequired(t *testing.T) {
 	}
 	f.Add(item)
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestRSSItemAuthorUsesEmailPerSpec(t *testing.T) {
 	item.Author = &gofeedx.Author{Name: "Alice", Email: "alice@example.org"}
 	f.Add(item)
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestRSSItemGuidAndIsPermaLink(t *testing.T) {
 	item.IsPermaLink = "false"
 	f.Add(item)
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestRSSItemTitleOrDescriptionPresent(t *testing.T) {
 	item.Description = ""
 	f.Add(item)
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	item.ItunesBlock = false
 	item.Transcripts = []gofeedx.PSPTranscript{{Url: "https://example.com/t.vtt", Type: "text/vtt"}}
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestRSSExtensionNodesAllowed(t *testing.T) {
 		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
 	}
 
-	xmlStr, err := f.ToRSS()
+xmlStr, err := f.ToRSSString()
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}

@@ -252,7 +252,7 @@ type ItunesBlock struct {
 
 /*
 Unified PSP-1 handling: configure podcast fields directly on Feed and Item,
-then call Feed.ToPSPRSS()/WritePSPRSS() to render a compliant PSP-1 RSS feed.
+then call Feed.ToPSPRSSFeed()/WritePSPRSS() or ToPSPRSSString() to render a compliant PSP-1 RSS feed.
 */
 
 // PSP is a wrapper to marshal a Feed as PSP-1 RSS with required namespaces.
@@ -260,13 +260,28 @@ type PSP struct {
 	*Feed
 }
 
-// ToPSPRSS creates a PSP-1 RSS representation of this feed as string.
-func (f *Feed) ToPSPRSS() (string, error) {
+/*
+ToPSPRSSString creates a PSP-1 RSS representation of this feed as a string.
+Use ToPSPRSS() if you need the structured root object for further processing.
+*/
+func (f *Feed) ToPSPRSSString() (string, error) {
 	if err := f.ValidatePSP(); err != nil {
 		return "", err
 	}
 	return ToXML(&PSP{f})
 }
+
+/*
+ToPSPRSSFeed returns the PSP-1 RSS root struct for this feed.
+*/
+func (f *Feed) ToPSPRSSFeed() (*PSPRSSRoot, error) {
+	if err := f.ValidatePSP(); err != nil {
+		return nil, err
+	}
+	p := &PSP{f}
+	return p.wrapRoot(p.buildChannel()), nil
+}
+
 
 // WritePSPRSS writes a PSP-1 RSS representation of this feed to the writer.
 func (f *Feed) WritePSPRSS(w io.Writer) error {
