@@ -9,7 +9,10 @@ import (
 	"time"
 )
 
-const jsonFeedVersion = "https://jsonfeed.org/version/1.1"
+const (
+	jsonFeedVersion = "https://jsonfeed.org/version/1.1"
+	maxSize         = 2147483647
+)
 
 // JSONAuthor represents the author of the feed or of an individual item
 type JSONAuthor struct {
@@ -250,9 +253,29 @@ func newJSONItem(i *Item) *JSONItem {
 	if !i.Updated.IsZero() {
 		item.ModifiedDate = &i.Updated
 	}
-	// If enclosure is an image, map to JSON Feed's "image"
-	if i.Enclosure != nil && strings.HasPrefix(i.Enclosure.Type, "image/") {
-		item.Image = i.Enclosure.Url
+	// Map enclosure:
+	// - If it's an image, map to JSON Feed's "image"
+	// - Otherwise, add as an attachment with optional duration
+	if i.Enclosure != nil {
+		if strings.HasPrefix(i.Enclosure.Type, "image/") {
+			item.Image = i.Enclosure.Url
+		} else {
+			var sz int32
+			if i.Enclosure.Length > maxSize {
+				sz = maxSize
+			} else if i.Enclosure.Length > 0 {
+				sz = int32(i.Enclosure.Length)
+			}
+			att := JSONAttachment{
+				Url:      i.Enclosure.Url,
+				MIMEType: i.Enclosure.Type,
+				Size:     sz,
+			}
+			if i.DurationSeconds > 0 {
+				att.Duration = time.Duration(i.DurationSeconds) * time.Second
+			}
+			item.Attachments = append(item.Attachments, att)
+		}
 	}
 
 	return item

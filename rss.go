@@ -197,7 +197,7 @@ func newRssItem(i *Item) *RssItem {
 	if i.Source != nil {
 		item.Source = i.Source.Href
 	}
-	if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Url != "" && i.Enclosure.Length >= 0 {
+	if i.Enclosure != nil && i.Enclosure.Type != "" && i.Enclosure.Url != "" && i.Enclosure.Length > 0 {
 		item.Enclosure = &RssEnclosure{
 			Url:    i.Enclosure.Url,
 			Type:   i.Enclosure.Type,
