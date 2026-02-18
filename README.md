@@ -192,9 +192,9 @@ item.ApplyExtensions(
 
 ## Namespaces and format notes
 
-- RSS: the content namespace (http://purl.org/rss/1.0/modules/content/) is declared only if content:encoded is used.
-- Atom: xmlns is set to http://www.w3.org/2005/Atom on the feed root element.
-- PSP-1: required namespaces for iTunes (http://www.itunes.com/dtds/podcast-1.0.dtd), podcast (https://podcastindex.org/namespace/1.0), and Atom are declared on the RSS root.
+- RSS: the content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
+- Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the feed root element.
+- PSP-1: required namespaces for iTunes (<http://www.itunes.com/dtds/podcast-1.0.dtd>), podcast (<https://podcastindex.org/namespace/1.0>), and Atom are declared on the RSS root.
 
 ## Field-to-format mapping
 
