@@ -199,6 +199,10 @@ func newAtomEntry(i *Item) *AtomEntry {
 		Id:      id,
 		Updated: anyTimeFormat(time.RFC3339, i.Updated, i.Created),
 	}
+	// Published maps to item Created timestamp when available
+	if !i.Created.IsZero() {
+		x.Published = i.Created.Format(time.RFC3339)
+	}
 
 	// Summary from description (assume html)
 	if len(i.Description) > 0 {
@@ -213,6 +217,11 @@ func newAtomEntry(i *Item) *AtomEntry {
 	// Enclosure if present and not already the main link
 	if i.Enclosure != nil && linkRel != "enclosure" {
 		x.Links = append(x.Links, AtomLink{Href: i.Enclosure.Url, Rel: "enclosure", Type: i.Enclosure.Type, Length: ""})
+	}
+
+	// Related/source link if provided
+	if i.Source != nil && i.Source.Href != "" {
+		x.Links = append(x.Links, AtomLink{Href: i.Source.Href, Rel: "related", Type: i.Source.Type, Length: i.Source.Length})
 	}
 
 	if len(name) > 0 || len(email) > 0 {
