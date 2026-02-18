@@ -86,20 +86,20 @@ type JSONHub struct {
 
 // JSONFeed represents a syndication feed in the JSON Feed Version 1.1 format.
 type JSONFeed struct {
-	Version     string        `json:"version"`
-	Title       string        `json:"title"`
-	Language    string        `json:"language,omitempty"`
-	HomePageUrl string        `json:"home_page_url,omitempty"`
-	FeedUrl     string        `json:"feed_url,omitempty"`
-	Description string        `json:"description,omitempty"`
-	UserComment string        `json:"user_comment,omitempty"`
-	NextUrl     string        `json:"next_url,omitempty"`
-	Icon        string        `json:"icon,omitempty"`
-	Favicon     string        `json:"favicon,omitempty"`
-	Authors     []*JSONAuthor `json:"authors,omitempty"` // v1.1
-	Expired     *bool         `json:"expired,omitempty"`
-	Hubs        []*JSONHub    `json:"hubs,omitempty"`
-	Items       []*JSONItem   `json:"items,omitempty"`
+	Version     string          `json:"version"`
+	Title       string          `json:"title"`
+	Language    string          `json:"language,omitempty"`
+	HomePageUrl string          `json:"home_page_url,omitempty"`
+	FeedUrl     string          `json:"feed_url,omitempty"`
+	Description string          `json:"description,omitempty"`
+	UserComment string          `json:"user_comment,omitempty"`
+	NextUrl     string          `json:"next_url,omitempty"`
+	Icon        string          `json:"icon,omitempty"`
+	Favicon     string          `json:"favicon,omitempty"`
+	Authors     []*JSONAuthor   `json:"authors,omitempty"` // v1.1
+	Expired     *bool           `json:"expired,omitempty"`
+	Hubs        []*JSONHub      `json:"hubs,omitempty"`
+	Items       []*JSONItem     `json:"items,omitempty"`
 	Exts        []ExtensionNode `json:"-"`
 }
 

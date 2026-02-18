@@ -27,47 +27,47 @@ const (
 
 // PodcastNamespaceUUID is UUID v5 namespace for podcast:guid generation
 // ead4c236-bf58-58c6-a2c6-a6b28d128cb6
-var PodcastNamespaceUUID = UUID{0xea, 0xd4, 0xc2, 0x36, 0xbf, 0x58, 0x58, 0xc6, 0xa2, 0xc6, 0xa6, 0xb2, 0x8d, 0x12, 0x8c, 0xb6 }
+var PodcastNamespaceUUID = UUID{0xea, 0xd4, 0xc2, 0x36, 0xbf, 0x58, 0x58, 0xc6, 0xa2, 0xc6, 0xa6, 0xb2, 0x8d, 0x12, 0x8c, 0xb6}
 
 // PSPRSSRoot is the <rss> wrapper with PSP namespaces.
 type PSPRSSRoot struct {
-	XMLName     xml.Name   `xml:"rss"`
-	Version     string     `xml:"version,attr"`
-	NSItunes    string     `xml:"xmlns:itunes,attr"`
-	NSPodcast   string     `xml:"xmlns:podcast,attr"`
-	NSAtom      string     `xml:"xmlns:atom,attr"`
-	NSContent   string     `xml:"xmlns:content,attr,omitempty"`
-	Channel     *PSPChannel `xml:"channel"`
+	XMLName   xml.Name    `xml:"rss"`
+	Version   string      `xml:"version,attr"`
+	NSItunes  string      `xml:"xmlns:itunes,attr"`
+	NSPodcast string      `xml:"xmlns:podcast,attr"`
+	NSAtom    string      `xml:"xmlns:atom,attr"`
+	NSContent string      `xml:"xmlns:content,attr,omitempty"`
+	Channel   *PSPChannel `xml:"channel"`
 }
 
 // PSPChannel is the <channel> with standard RSS elements plus PSP extensions.
 type PSPChannel struct {
-	XMLName       xml.Name `xml:"channel"`
-	Title         string   `xml:"title"`       // required
-	Description   string   `xml:"description"` // required (may embed CDATA in content:encoded for rich HTML elsewhere)
-	Link          string   `xml:"link"`        // required
-	Language      string   `xml:"language"`    // required
+	XMLName     xml.Name `xml:"channel"`
+	Title       string   `xml:"title"`       // required
+	Description string   `xml:"description"` // required (may embed CDATA in content:encoded for rich HTML elsewhere)
+	Link        string   `xml:"link"`        // required
+	Language    string   `xml:"language"`    // required
 
 	// Recommended and optional standard RSS fields
-	Copyright     string   `xml:"copyright,omitempty"`
-	PubDate       string   `xml:"pubDate,omitempty"`
-	LastBuildDate string   `xml:"lastBuildDate,omitempty"`
+	Copyright     string `xml:"copyright,omitempty"`
+	PubDate       string `xml:"pubDate,omitempty"`
+	LastBuildDate string `xml:"lastBuildDate,omitempty"`
 
 	// atom:link rel="self"
 	AtomSelf *PSPAtomLink `xml:"atom:link,omitempty"`
 
 	// iTunes channel fields
-	ItunesImage     *ItunesImage      `xml:"itunes:image,omitempty"`
-	ItunesExplicit  *ItunesExplicit   `xml:"itunes:explicit,omitempty"`
-	ItunesAuthor    string            `xml:"itunes:author,omitempty"`
-	ItunesType      string            `xml:"itunes:type,omitempty"`
-	ItunesComplete  *ItunesComplete   `xml:"itunes:complete,omitempty"`
+	ItunesImage      *ItunesImage      `xml:"itunes:image,omitempty"`
+	ItunesExplicit   *ItunesExplicit   `xml:"itunes:explicit,omitempty"`
+	ItunesAuthor     string            `xml:"itunes:author,omitempty"`
+	ItunesType       string            `xml:"itunes:type,omitempty"`
+	ItunesComplete   *ItunesComplete   `xml:"itunes:complete,omitempty"`
 	ItunesCategories []*ItunesCategory `xml:"itunes:category,omitempty"`
 
 	// podcast namespace channel fields
-	PodcastLocked  *PodcastLocked `xml:"podcast:locked,omitempty"`
-	PodcastGuid    string         `xml:"podcast:guid,omitempty"`
-	PodcastTXT     *PodcastTXT    `xml:"podcast:txt,omitempty"`
+	PodcastLocked  *PodcastLocked  `xml:"podcast:locked,omitempty"`
+	PodcastGuid    string          `xml:"podcast:guid,omitempty"`
+	PodcastTXT     *PodcastTXT     `xml:"podcast:txt,omitempty"`
 	PodcastFunding *PodcastFunding `xml:"podcast:funding,omitempty"`
 
 	// Items
@@ -105,8 +105,8 @@ type ItunesComplete struct {
 
 // ItunesCategory supports nesting
 type ItunesCategory struct {
-	XMLName xml.Name         `xml:"itunes:category"`
-	Text    string           `xml:"text,attr"`
+	XMLName xml.Name          `xml:"itunes:category"`
+	Text    string            `xml:"text,attr"`
 	Sub     []*ItunesCategory `xml:"itunes:category,omitempty"`
 }
 
@@ -154,13 +154,13 @@ type PSPItem struct {
 	Guid *RssGuid `xml:"guid"` // required
 
 	// iTunes item fields
-	ItunesDuration   string        `xml:"itunes:duration,omitempty"` // seconds
-	ItunesImage      *ItunesImage  `xml:"itunes:image,omitempty"`
-	ItunesExplicit   *ItunesExplicit `xml:"itunes:explicit,omitempty"`
-	ItunesEpisode    *int          `xml:"itunes:episode,omitempty"`
-	ItunesSeason     *int          `xml:"itunes:season,omitempty"`
-	ItunesEpisodeType string       `xml:"itunes:episodeType,omitempty"` // "full", "trailer", "bonus"
-	ItunesBlock      *ItunesBlock  `xml:"itunes:block,omitempty"`
+	ItunesDuration    string          `xml:"itunes:duration,omitempty"` // seconds
+	ItunesImage       *ItunesImage    `xml:"itunes:image,omitempty"`
+	ItunesExplicit    *ItunesExplicit `xml:"itunes:explicit,omitempty"`
+	ItunesEpisode     *int            `xml:"itunes:episode,omitempty"`
+	ItunesSeason      *int            `xml:"itunes:season,omitempty"`
+	ItunesEpisodeType string          `xml:"itunes:episodeType,omitempty"` // "full", "trailer", "bonus"
+	ItunesBlock       *ItunesBlock    `xml:"itunes:block,omitempty"`
 
 	// podcast namespace item fields
 	Transcripts []PSPTranscript `xml:"podcast:transcript,omitempty"`
@@ -180,15 +180,15 @@ type PSPFeed struct {
 	src *Feed
 
 	// PSP channel config
-	atomSelf      string
-	itunesImage   string
-	itunesExplicit *bool
-	itunesAuthor  string
-	itunesType    string // episodic/serial
-	itunesComplete bool
+	atomSelf         string
+	itunesImage      string
+	itunesExplicit   *bool
+	itunesAuthor     string
+	itunesType       string // episodic/serial
+	itunesComplete   bool
 	itunesCategories []*ItunesCategory
 
-	podcastLocked   *bool // yes/no
+	podcastLocked   *bool  // yes/no
 	podcastGuidSeed string // the feed URL to seed GUID generation
 	podcastTXT      *PodcastTXT
 	podcastFunding  *PodcastFunding
@@ -216,9 +216,9 @@ type PSPItemConfig struct {
 // NewPSPFeed creates a builder from a generic Feed.
 func NewPSPFeed(feed *Feed) *PSPFeed {
 	return &PSPFeed{
-		src:      feed,
-		extraNS:  map[string]string{},
-		itemExt:  map[int]*PSPItemConfig{},
+		src:     feed,
+		extraNS: map[string]string{},
+		itemExt: map[int]*PSPItemConfig{},
 	}
 }
 

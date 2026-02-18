@@ -47,21 +47,21 @@ type AtomLink struct {
 }
 
 type AtomEntry struct {
-	XMLName     xml.Name    `xml:"entry"`
-	Xmlns       string      `xml:"xmlns,attr,omitempty"`
-	Title       string      `xml:"title"`   // required
-	Updated     string      `xml:"updated"` // required
-	Id          string      `xml:"id"`      // required
-	Category    string      `xml:"category,omitempty"`
+	XMLName     xml.Name `xml:"entry"`
+	Xmlns       string   `xml:"xmlns,attr,omitempty"`
+	Title       string   `xml:"title"`   // required
+	Updated     string   `xml:"updated"` // required
+	Id          string   `xml:"id"`      // required
+	Category    string   `xml:"category,omitempty"`
 	Content     *AtomContent
 	Rights      string `xml:"rights,omitempty"`
 	Source      string `xml:"source,omitempty"`
 	Published   string `xml:"published,omitempty"`
 	Contributor *AtomContributor
-	Links       []AtomLink   // required if no child 'content' elements
-	Summary     *AtomSummary // required if content has src or content is base64
-	Author      *AtomAuthor  // required if feed lacks an author
-	Extra       []ExtensionNode    `xml:",any"` // custom extension nodes
+	Links       []AtomLink      // required if no child 'content' elements
+	Summary     *AtomSummary    // required if content has src or content is base64
+	Author      *AtomAuthor     // required if feed lacks an author
+	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
 
 type AtomFeed struct {
@@ -78,8 +78,8 @@ type AtomFeed struct {
 	Link        *AtomLink
 	Author      *AtomAuthor `xml:"author,omitempty"`
 	Contributor *AtomContributor
-	Entries     []*AtomEntry `xml:"entry"`
-	Extra       []ExtensionNode    `xml:",any"` // custom extension nodes
+	Entries     []*AtomEntry    `xml:"entry"`
+	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
 
 type Atom struct {

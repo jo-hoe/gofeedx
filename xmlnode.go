@@ -5,7 +5,7 @@ import (
 	"sort"
 )
 
- // ExtensionNode represents a generic extension element that can be injected into channel/feed
+// ExtensionNode represents a generic extension element that can be injected into channel/feed
 // or item/entry scopes for RSS/PSP/Atom outputs. It avoids external dependencies
 // and uses encoding/xml for safe construction.
 //

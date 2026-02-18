@@ -46,43 +46,43 @@ type RssGuid struct {
 }
 
 type RssItem struct {
-	XMLName     xml.Name     `xml:"item"`
-	Title       string       `xml:"title"`       // required
-	Link        string       `xml:"link"`        // required by spec, but often omitted by feeds
-	Description string       `xml:"description"` // required by spec; we include if provided
-	Content     *RssContent  `xml:"content:encoded,omitempty"`
-	Author      string       `xml:"author,omitempty"`
-	Category    string       `xml:"category,omitempty"`
-	Comments    string       `xml:"comments,omitempty"`
+	XMLName     xml.Name    `xml:"item"`
+	Title       string      `xml:"title"`       // required
+	Link        string      `xml:"link"`        // required by spec, but often omitted by feeds
+	Description string      `xml:"description"` // required by spec; we include if provided
+	Content     *RssContent `xml:"content:encoded,omitempty"`
+	Author      string      `xml:"author,omitempty"`
+	Category    string      `xml:"category,omitempty"`
+	Comments    string      `xml:"comments,omitempty"`
 	Enclosure   *RssEnclosure
 	Guid        *RssGuid
-	PubDate     string    `xml:"pubDate,omitempty"`
-	Source      string    `xml:"source,omitempty"`
+	PubDate     string          `xml:"pubDate,omitempty"`
+	Source      string          `xml:"source,omitempty"`
 	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
 type RssFeed struct {
-	XMLName       xml.Name  `xml:"channel"`
-	Title         string    `xml:"title"`       // required
-	Link          string    `xml:"link"`        // required
-	Description   string    `xml:"description"` // required
-	Language      string    `xml:"language,omitempty"`
-	Copyright     string    `xml:"copyright,omitempty"`
-	ManagingEditor string   `xml:"managingEditor,omitempty"`
-	WebMaster     string    `xml:"webMaster,omitempty"`
-	PubDate       string    `xml:"pubDate,omitempty"`
-	LastBuildDate string    `xml:"lastBuildDate,omitempty"`
-	Category      string    `xml:"category,omitempty"`
-	Generator     string    `xml:"generator,omitempty"`
-	Docs          string    `xml:"docs,omitempty"`
-	Cloud         string    `xml:"cloud,omitempty"`
-	Ttl           int       `xml:"ttl,omitempty"`
-	Rating        string    `xml:"rating,omitempty"`
-	SkipHours     string    `xml:"skipHours,omitempty"`
-	SkipDays      string    `xml:"skipDays,omitempty"`
-	Image         *RssImage `xml:"image,omitempty"`
-	Items         []*RssItem `xml:"item"`
-	Extra         []ExtensionNode `xml:",any"` // custom nodes at channel scope
+	XMLName        xml.Name        `xml:"channel"`
+	Title          string          `xml:"title"`       // required
+	Link           string          `xml:"link"`        // required
+	Description    string          `xml:"description"` // required
+	Language       string          `xml:"language,omitempty"`
+	Copyright      string          `xml:"copyright,omitempty"`
+	ManagingEditor string          `xml:"managingEditor,omitempty"`
+	WebMaster      string          `xml:"webMaster,omitempty"`
+	PubDate        string          `xml:"pubDate,omitempty"`
+	LastBuildDate  string          `xml:"lastBuildDate,omitempty"`
+	Category       string          `xml:"category,omitempty"`
+	Generator      string          `xml:"generator,omitempty"`
+	Docs           string          `xml:"docs,omitempty"`
+	Cloud          string          `xml:"cloud,omitempty"`
+	Ttl            int             `xml:"ttl,omitempty"`
+	Rating         string          `xml:"rating,omitempty"`
+	SkipHours      string          `xml:"skipHours,omitempty"`
+	SkipDays       string          `xml:"skipDays,omitempty"`
+	Image          *RssImage       `xml:"image,omitempty"`
+	Items          []*RssItem      `xml:"item"`
+	Extra          []ExtensionNode `xml:",any"` // custom nodes at channel scope
 }
 
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
