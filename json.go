@@ -303,7 +303,6 @@ func (f *Feed) ToJSONFeed() (*JSONFeed, error) {
 	return j.JSONFeed(), nil
 }
 
-
 // WriteJSON writes a JSON representation of this feed to the writer.
 func (f *Feed) WriteJSON(w io.Writer) error {
 	j := &JSON{f}

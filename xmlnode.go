@@ -10,14 +10,14 @@ import (
 // and uses encoding/xml for safe construction.
 //
 // Notes:
-// - Name may include a prefix (e.g., "itunes:image", "podcast:funding").
-// - Attrs keys may include prefixes as well (e.g., "href", "podcast:role").
-// - Text is encoded as character data (escaped as needed).
-// - Children are encoded recursively.
-// - CDATA and raw inner XML are intentionally not supported by default because
-//   encoding/xml does not expose an easy CDATA API. If you need embedded HTML,
-//   prefer standard fields (e.g., Content/Description which are supported in
-//   RSS via content:encoded and CDATA) or submit a feature request to extend this.
+//   - Name may include a prefix (e.g., "itunes:image", "podcast:funding").
+//   - Attrs keys may include prefixes as well (e.g., "href", "podcast:role").
+//   - Text is encoded as character data (escaped as needed).
+//   - Children are encoded recursively.
+//   - CDATA and raw inner XML are intentionally not supported by default because
+//     encoding/xml does not expose an easy CDATA API. If you need embedded HTML,
+//     prefer standard fields (e.g., Content/Description which are supported in
+//     RSS via content:encoded and CDATA) or submit a feature request to extend this.
 type ExtensionNode struct {
 	// Name is the element name, may include a namespace prefix (e.g., "itunes:image").
 	Name string

@@ -102,7 +102,6 @@ func (f *Feed) ToAtomFeed() (*AtomFeed, error) {
 	return a.AtomFeed(), nil
 }
 
-
 // WriteAtom writes an Atom 1.0 representation of this feed to the writer.
 func (f *Feed) WriteAtom(w io.Writer) error {
 	return WriteXML(&Atom{f}, w)

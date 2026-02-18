@@ -37,11 +37,11 @@ type atomInline struct {
 }
 
 type atomFeedDoc struct {
-	XMLName xml.Name   `xml:"feed"`
-	Xmlns   string     `xml:"xmlns,attr"`
-	Title   string     `xml:"title"`
-	Id      string     `xml:"id"`
-	Updated string     `xml:"updated"`
+	XMLName xml.Name    `xml:"feed"`
+	Xmlns   string      `xml:"xmlns,attr"`
+	Title   string      `xml:"title"`
+	Id      string      `xml:"id"`
+	Updated string      `xml:"updated"`
 	Author  *atomPerson `xml:"author"`
 	Entries []atomEntry `xml:"entry"`
 }
@@ -67,7 +67,7 @@ func TestAtomFeedRequiredElements(t *testing.T) {
 	f := newAtomBaseFeed()
 	f.Add(newAtomBaseItem())
 
-xmlStr, err := f.ToAtomString()
+	xmlStr, err := f.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestAtomEntryContentAndSummaryBehavior(t *testing.T) {
 	item1 := newAtomBaseItem()
 	item1.Description = "<p>Summary</p>"
 	f1.Add(item1)
-xml1, err := f1.ToAtomString()
+	xml1, err := f1.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -147,7 +147,7 @@ xml1, err := f1.ToAtomString()
 	item2 := newAtomBaseItem()
 	item2.Content = "<p>Body</p>"
 	f2.Add(item2)
-xml2, err := f2.ToAtomString()
+	xml2, err := f2.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestAtomAutoIdGenerationTagURI(t *testing.T) {
 	item := newAtomBaseItem()
 	item.ID = ""
 	f.Add(item)
-xmlStr, err := f.ToAtomString()
+	xmlStr, err := f.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestAtomAuthorRequirementPerSpec(t *testing.T) {
 	item := newAtomBaseItem()
 	// no item.Author
 	f.Add(item)
-xmlStr, err := f.ToAtomString()
+	xmlStr, err := f.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 	item.Transcripts = []gofeedx.PSPTranscript{{Url: "https://example.com/t2.vtt", Type: "text/vtt"}}
 
 	// Serialize as Atom
-xmlStr, err := feed.ToAtomString()
+	xmlStr, err := feed.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestAtomExtensionNodesAllowed(t *testing.T) {
 		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
 	}
 
-atom, err := feed.ToAtomString()
+	atom, err := feed.ToAtomString()
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}

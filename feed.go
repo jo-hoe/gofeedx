@@ -79,8 +79,8 @@ type Feed struct {
 	Extensions []ExtensionNode
 
 	// Generic channel fields used by multiple targets
-	FeedURL    string        // used by JSON (feed_url) and PSP (atom:link rel=self)
-	Categories []*Category   // used by RSS/Atom/PSP
+	FeedURL    string      // used by JSON (feed_url) and PSP (atom:link rel=self)
+	Categories []*Category // used by RSS/Atom/PSP
 }
 
 // Add appends a new item to the feed.

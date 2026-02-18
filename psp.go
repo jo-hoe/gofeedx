@@ -282,7 +282,6 @@ func (f *Feed) ToPSPRSSFeed() (*PSPRSSRoot, error) {
 	return p.wrapRoot(p.buildChannel()), nil
 }
 
-
 // WritePSPRSS writes a PSP-1 RSS representation of this feed to the writer.
 func (f *Feed) WritePSPRSS(w io.Writer) error {
 	if err := f.ValidatePSP(); err != nil {
@@ -448,7 +447,6 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 	if it.DurationSeconds > 0 {
 		pi.ItunesDuration = fmt.Sprintf("%d", it.DurationSeconds)
 	}
-
 
 	// Custom item nodes from src
 	if len(it.Extensions) > 0 {

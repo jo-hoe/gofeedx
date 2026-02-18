@@ -108,7 +108,6 @@ func (f *Feed) ToRSSFeed() (*RssFeedXml, error) {
 	return root, nil
 }
 
-
 // WriteRSS writes an RSS 2.0 representation of this feed to the writer.
 func (f *Feed) WriteRSS(w io.Writer) error {
 	return WriteXML(&Rss{f}, w)
