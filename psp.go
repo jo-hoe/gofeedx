@@ -321,7 +321,8 @@ type PSPItem struct {
 }
 
 type PSPItemExtension struct {
-	XMLName xml.Name `xml:"item"`
+	XMLName xml.Name    `xml:"item"`
+	Content *RssContent `xml:"content:encoded,omitempty"` // optional HTML content in CDATA (content namespace)
 	// Extra custom nodes
 	Extra []ExtensionNode `xml:",any"`
 }
@@ -341,9 +342,6 @@ ToPSPRSSString creates a PSP-1 RSS representation of this feed as a string.
 Use ToPSPRSS() if you need the structured root object for further processing.
 */
 func (f *Feed) ToPSPRSSString() (string, error) {
-	if err := f.ValidatePSP(); err != nil {
-		return "", err
-	}
 	return ToXML(&PSP{f})
 }
 
@@ -351,18 +349,12 @@ func (f *Feed) ToPSPRSSString() (string, error) {
 ToPSPRSSFeed returns the PSP-1 RSS root struct for this feed.
 */
 func (f *Feed) ToPSPRSSFeed() (*PSPRSSRoot, error) {
-	if err := f.ValidatePSP(); err != nil {
-		return nil, err
-	}
 	p := &PSP{f}
 	return p.wrapRoot(p.buildChannel()), nil
 }
 
 // WritePSPRSS writes a PSP-1 RSS representation of this feed to the writer.
 func (f *Feed) WritePSPRSS(w io.Writer) error {
-	if err := f.ValidatePSP(); err != nil {
-		return err
-	}
 	return WriteXML(&PSP{f}, w)
 }
 
@@ -526,6 +518,10 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 	// iTunes item fields (from generic feed where available)
 	if it.DurationSeconds > 0 {
 		pi.ItunesDuration = fmt.Sprintf("%d", it.DurationSeconds)
+	}
+	// Optional HTML content via content:encoded (align with RSS behavior)
+	if len(it.Content) > 0 {
+		pi.Content = &RssContent{Content: it.Content}
 	}
 
 	// Custom item nodes from src
