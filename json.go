@@ -180,8 +180,64 @@ func (f *JSON) JSONFeed() *JSONFeed {
 	for _, e := range f.Items {
 		feed.Items = append(feed.Items, newJSONItem(e))
 	}
-	// Copy unified extensions for JSON flattening
-	feed.Exts = f.Extensions
+	// Copy unified extensions for JSON flattening, mapping known helpers to typed fields
+	if len(f.Extensions) > 0 {
+		var extras []ExtensionNode
+		for _, n := range f.Extensions {
+			name := strings.TrimSpace(strings.ToLower(n.Name))
+			switch name {
+			case "_json:user_comment":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.UserComment = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:next_url":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.NextUrl = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:expired":
+				switch strings.ToLower(strings.TrimSpace(n.Text)) {
+				case "true":
+					v := true
+					feed.Expired = &v
+				case "false":
+					v := false
+					feed.Expired = &v
+				default:
+					extras = append(extras, n)
+				}
+			case "_json:hub":
+				var ht, hu string
+				if n.Attrs != nil {
+					ht = strings.TrimSpace(n.Attrs["type"])
+					hu = strings.TrimSpace(n.Attrs["url"])
+				}
+				if ht != "" && hu != "" {
+					feed.Hubs = append(feed.Hubs, &JSONHub{Type: ht, Url: hu})
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:icon":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.Icon = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:favicon":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.Favicon = s
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		feed.Exts = extras
+	}
 	return feed
 }
 
@@ -229,9 +285,7 @@ func newJSONItem(i *Item) *JSONItem {
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present
-		JSONItemExtension: &JSONItemExtension{
-			Exts: i.Extensions,
-		},
+		JSONItemExtension: &JSONItemExtension{},
 	}
 
 	if i.Link != nil {
@@ -277,6 +331,54 @@ func newJSONItem(i *Item) *JSONItem {
 		}
 	}
 
+	// Map known JSON item helpers and keep others for flattening
+	if len(i.Extensions) > 0 {
+		var extras []ExtensionNode
+		for _, n := range i.Extensions {
+			name := strings.TrimSpace(strings.ToLower(n.Name))
+			switch name {
+			case "_json:content_text":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.ContentText = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:banner_image":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.BannerImage = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:tags":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					parts := strings.Split(s, ",")
+					for _, p := range parts {
+						if t := strings.TrimSpace(p); t != "" {
+							item.Tags = append(item.Tags, t)
+						}
+					}
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:tag":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.Tags = append(item.Tags, s)
+				} else {
+					extras = append(extras, n)
+				}
+			case "_json:image":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.Image = s
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		item.Exts = extras
+	}
+
 	return item
 }
 
@@ -300,5 +402,118 @@ func ValidateJSON(f *Feed) error {
 		}
 	}
 	return nil
+}
+
+// JSON-specific builder helpers implemented here without touching generic files.
+// Feed-level helpers:
+
+// WithJSONUserComment sets feed-level user_comment.
+func (b *FeedBuilder) WithJSONUserComment(text string) *FeedBuilder {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:user_comment", Text: text})
+}
+
+// WithJSONNextURL sets feed-level next_url.
+func (b *FeedBuilder) WithJSONNextURL(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:next_url", Text: url})
+}
+
+// WithJSONExpired sets feed-level expired flag.
+func (b *FeedBuilder) WithJSONExpired(expired bool) *FeedBuilder {
+	val := "false"
+	if expired {
+		val = "true"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:expired", Text: val})
+}
+
+// WithJSONHub adds a PubSub hub.
+func (b *FeedBuilder) WithJSONHub(hubType, url string) *FeedBuilder {
+	hubType = strings.TrimSpace(hubType)
+	url = strings.TrimSpace(url)
+	if hubType == "" || url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:hub", Attrs: map[string]string{"type": hubType, "url": url}})
+}
+
+// WithJSONIcon overrides feed icon.
+func (b *FeedBuilder) WithJSONIcon(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:icon", Text: url})
+}
+
+// WithJSONFavicon overrides feed favicon.
+func (b *FeedBuilder) WithJSONFavicon(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:favicon", Text: url})
+}
+
+// Item-level helpers:
+
+// WithJSONContentText sets item content_text.
+func (b *ItemBuilder) WithJSONContentText(text string) *ItemBuilder {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:content_text", Text: text})
+}
+
+// WithJSONBannerImage sets item banner_image.
+func (b *ItemBuilder) WithJSONBannerImage(url string) *ItemBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:banner_image", Text: url})
+}
+
+// WithJSONTags sets item tags from a list.
+func (b *ItemBuilder) WithJSONTags(tags ...string) *ItemBuilder {
+	if len(tags) == 0 {
+		return b
+	}
+	trimmed := make([]string, 0, len(tags))
+	for _, t := range tags {
+		if s := strings.TrimSpace(t); s != "" {
+			trimmed = append(trimmed, s)
+		}
+	}
+	if len(trimmed) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:tags", Text: strings.Join(trimmed, ",")})
+}
+
+// WithJSONTag appends a single tag.
+func (b *ItemBuilder) WithJSONTag(tag string) *ItemBuilder {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:tag", Text: tag})
+}
+
+// WithJSONImage overrides item image.
+func (b *ItemBuilder) WithJSONImage(url string) *ItemBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_json:image", Text: url})
 }
 

@@ -164,9 +164,62 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		}
 	}
 
-	// Custom channel/feed extensions
+	// Custom channel/feed extensions: map known Atom helpers and keep others
 	if len(a.Extensions) > 0 {
-		feed.Extra = append(feed.Extra, a.Extensions...)
+		var extras []ExtensionNode
+		for _, n := range a.Extensions {
+			name := strings.TrimSpace(strings.ToLower(n.Name))
+			switch name {
+			case "_atom:icon":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.Icon = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:logo":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.Logo = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:rights":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					feed.Rights = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:contributor":
+				var ap AtomPerson
+				if n.Attrs != nil {
+					ap.Name = strings.TrimSpace(n.Attrs["name"])
+					ap.Email = strings.TrimSpace(n.Attrs["email"])
+					ap.Uri = strings.TrimSpace(n.Attrs["uri"])
+				}
+				if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
+					feed.Contributor = &AtomContributor{AtomPerson: ap}
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:link":
+				var l AtomLink
+				if n.Attrs != nil {
+					l.Href = strings.TrimSpace(n.Attrs["href"])
+					l.Rel = strings.TrimSpace(n.Attrs["rel"])
+					l.Type = strings.TrimSpace(n.Attrs["type"])
+					l.Length = strings.TrimSpace(n.Attrs["length"])
+				}
+				if l.Href != "" {
+					feed.Link = &l
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		if len(extras) > 0 {
+			feed.Extra = append(feed.Extra, extras...)
+		}
 	}
 	return feed
 }
@@ -232,14 +285,67 @@ func newAtomEntry(i *Item) *AtomEntry {
 		x.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: name, Email: email}}
 	}
 
-	// Custom item/entry extensions
+	// Custom item/entry extensions: map known Atom helpers and keep others
 	if len(i.Extensions) > 0 {
 		if x.AtomEntryExtension == nil {
 			x.AtomEntryExtension = &AtomEntryExtension{
 				Xmlns: atomNS,
 			}
 		}
-		x.Extra = append(x.Extra, i.Extensions...)
+		var extras []ExtensionNode
+		for _, n := range i.Extensions {
+			name := strings.TrimSpace(strings.ToLower(n.Name))
+			switch name {
+			case "_atom:category":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					x.Category = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:rights":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					x.Rights = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:contributor":
+				var ap AtomPerson
+				if n.Attrs != nil {
+					ap.Name = strings.TrimSpace(n.Attrs["name"])
+					ap.Email = strings.TrimSpace(n.Attrs["email"])
+					ap.Uri = strings.TrimSpace(n.Attrs["uri"])
+				}
+				if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
+					x.Contributor = &AtomContributor{AtomPerson: ap}
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:link":
+				var l AtomLink
+				if n.Attrs != nil {
+					l.Href = strings.TrimSpace(n.Attrs["href"])
+					l.Rel = strings.TrimSpace(n.Attrs["rel"])
+					l.Type = strings.TrimSpace(n.Attrs["type"])
+					l.Length = strings.TrimSpace(n.Attrs["length"])
+				}
+				if l.Href != "" {
+					x.Links = append(x.Links, l)
+				} else {
+					extras = append(extras, n)
+				}
+			case "_atom:source":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					x.Source = s
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		if len(extras) > 0 {
+			x.Extra = append(x.Extra, extras...)
+		}
 	}
 	return x
 }
@@ -292,6 +398,143 @@ func ValidateAtom(f *Feed) error {
 		}
 	}
 	return nil
+}
+
+// Atom-specific builder helpers implemented here without touching generic files.
+// Feed-level helpers:
+
+// WithAtomIcon sets feed-level icon override.
+func (b *FeedBuilder) WithAtomIcon(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:icon", Text: url})
+}
+
+// WithAtomLogo sets feed-level logo override.
+func (b *FeedBuilder) WithAtomLogo(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:logo", Text: url})
+}
+
+// WithAtomRights sets feed-level rights text (copyright override).
+func (b *FeedBuilder) WithAtomRights(text string) *FeedBuilder {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:rights", Text: text})
+}
+
+// WithAtomContributor sets a feed-level contributor.
+func (b *FeedBuilder) WithAtomContributor(name, email, uri string) *FeedBuilder {
+	attrs := map[string]string{}
+	if s := strings.TrimSpace(name); s != "" {
+		attrs["name"] = s
+	}
+	if s := strings.TrimSpace(email); s != "" {
+		attrs["email"] = s
+	}
+	if s := strings.TrimSpace(uri); s != "" {
+		attrs["uri"] = s
+	}
+	if len(attrs) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:contributor", Attrs: attrs})
+}
+
+// WithAtomFeedLink overrides/adds the primary feed link with attributes.
+func (b *FeedBuilder) WithAtomFeedLink(href, rel, typ, length string) *FeedBuilder {
+	attrs := map[string]string{}
+	if s := strings.TrimSpace(href); s != "" {
+		attrs["href"] = s
+	}
+	if s := strings.TrimSpace(rel); s != "" {
+		attrs["rel"] = s
+	}
+	if s := strings.TrimSpace(typ); s != "" {
+		attrs["type"] = s
+	}
+	if s := strings.TrimSpace(length); s != "" {
+		attrs["length"] = s
+	}
+	if len(attrs) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:link", Attrs: attrs})
+}
+
+// Item-level helpers:
+
+// WithAtomCategory sets entry category.
+func (b *ItemBuilder) WithAtomCategory(text string) *ItemBuilder {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:category", Text: text})
+}
+
+// WithAtomRights sets entry rights.
+func (b *ItemBuilder) WithAtomRights(text string) *ItemBuilder {
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:rights", Text: text})
+}
+
+// WithAtomContributor sets entry-level contributor.
+func (b *ItemBuilder) WithAtomContributor(name, email, uri string) *ItemBuilder {
+	attrs := map[string]string{}
+	if s := strings.TrimSpace(name); s != "" {
+		attrs["name"] = s
+	}
+	if s := strings.TrimSpace(email); s != "" {
+		attrs["email"] = s
+	}
+	if s := strings.TrimSpace(uri); s != "" {
+		attrs["uri"] = s
+	}
+	if len(attrs) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:contributor", Attrs: attrs})
+}
+
+// WithAtomLink appends an additional link to the entry.
+func (b *ItemBuilder) WithAtomLink(href, rel, typ, length string) *ItemBuilder {
+	attrs := map[string]string{}
+	if s := strings.TrimSpace(href); s != "" {
+		attrs["href"] = s
+	}
+	if s := strings.TrimSpace(rel); s != "" {
+		attrs["rel"] = s
+	}
+	if s := strings.TrimSpace(typ); s != "" {
+		attrs["type"] = s
+	}
+	if s := strings.TrimSpace(length); s != "" {
+		attrs["length"] = s
+	}
+	if len(attrs) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:link", Attrs: attrs})
+}
+
+// WithAtomSource sets the entry source.
+func (b *ItemBuilder) WithAtomSource(src string) *ItemBuilder {
+	src = strings.TrimSpace(src)
+	if src == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_atom:source", Text: src})
 }
 
 

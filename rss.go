@@ -124,6 +124,7 @@ func (r *Rss) RssFeed() *RssFeed {
 	imgW, imgH := 0, 0
 	ttl := 0
 	catOverride := ""
+	webMaster, generator, docs, cloud, rating, skipHours, skipDays := "", "", "", "", "", "", ""
 	var nonRSSExtras []ExtensionNode
 	for _, n := range r.Extensions {
 		switch n.Name {
@@ -148,6 +149,20 @@ func (r *Rss) RssFeed() *RssFeed {
 			}
 		case "_rss:category":
 			catOverride = strings.TrimSpace(n.Text)
+		case "_rss:webMaster":
+			webMaster = strings.TrimSpace(n.Text)
+		case "_rss:generator":
+			generator = strings.TrimSpace(n.Text)
+		case "_rss:docs":
+			docs = strings.TrimSpace(n.Text)
+		case "_rss:cloud":
+			cloud = strings.TrimSpace(n.Text)
+		case "_rss:rating":
+			rating = strings.TrimSpace(n.Text)
+		case "_rss:skipHours":
+			skipHours = strings.TrimSpace(n.Text)
+		case "_rss:skipDays":
+			skipDays = strings.TrimSpace(n.Text)
 		default:
 			nonRSSExtras = append(nonRSSExtras, n)
 		}
@@ -179,7 +194,14 @@ func (r *Rss) RssFeed() *RssFeed {
 		Image:          image,
 		Language:       r.Language,
 		RssFeedExtension: &RssFeedExtension{
-			Ttl: ttl,
+			WebMaster: webMaster,
+			Generator: generator,
+			Docs:      docs,
+			Cloud:     cloud,
+			Ttl:       ttl,
+			Rating:    rating,
+			SkipHours: skipHours,
+			SkipDays:  skipDays,
 		},
 	}
 
@@ -257,8 +279,28 @@ func newRssItem(i *Item) *RssItem {
 		if item.RssItemExtension == nil {
 			item.RssItemExtension = &RssItemExtension{}
 		}
-
-		item.Extra = append(item.Extra, i.Extensions...)
+		var extras []ExtensionNode
+		for _, n := range i.Extensions {
+			switch n.Name {
+			case "_rss:itemCategory":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.Category = s
+				} else {
+					extras = append(extras, n)
+				}
+			case "_rss:comments":
+				if s := strings.TrimSpace(n.Text); s != "" {
+					item.Comments = s
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		if len(extras) > 0 {
+			item.Extra = append(item.Extra, extras...)
+		}
 	}
 	return item
 }
@@ -296,5 +338,111 @@ func ValidateRSS(f *Feed) error {
 		}
 	}
 	return nil
+}
+
+// RSS-specific builder helpers implemented here without touching generic files.
+// Feed-level helpers:
+
+func (b *FeedBuilder) WithRSSTTL(ttl int) *FeedBuilder {
+	if ttl <= 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:ttl", Text: strconv.Itoa(ttl)})
+}
+
+func (b *FeedBuilder) WithRSSImageSize(width, height int) *FeedBuilder {
+	attrs := map[string]string{}
+	if width > 0 {
+		attrs["width"] = strconv.Itoa(width)
+	}
+	if height > 0 {
+		attrs["height"] = strconv.Itoa(height)
+	}
+	if len(attrs) == 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:imageSize", Attrs: attrs})
+}
+
+func (b *FeedBuilder) WithRSSCategory(category string) *FeedBuilder {
+	category = strings.TrimSpace(category)
+	if category == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:category", Text: category})
+}
+
+func (b *FeedBuilder) WithRSSWebMaster(email string) *FeedBuilder {
+	email = strings.TrimSpace(email)
+	if email == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:webMaster", Text: email})
+}
+
+func (b *FeedBuilder) WithRSSGenerator(gen string) *FeedBuilder {
+	gen = strings.TrimSpace(gen)
+	if gen == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:generator", Text: gen})
+}
+
+func (b *FeedBuilder) WithRSSDocs(url string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:docs", Text: url})
+}
+
+func (b *FeedBuilder) WithRSSCloud(cloud string) *FeedBuilder {
+	cloud = strings.TrimSpace(cloud)
+	if cloud == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:cloud", Text: cloud})
+}
+
+func (b *FeedBuilder) WithRSSRating(rating string) *FeedBuilder {
+	rating = strings.TrimSpace(rating)
+	if rating == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:rating", Text: rating})
+}
+
+func (b *FeedBuilder) WithRSSSkipHours(hours string) *FeedBuilder {
+	hours = strings.TrimSpace(hours)
+	if hours == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:skipHours", Text: hours})
+}
+
+func (b *FeedBuilder) WithRSSSkipDays(days string) *FeedBuilder {
+	days = strings.TrimSpace(days)
+	if days == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:skipDays", Text: days})
+}
+
+// Item-level helpers:
+
+func (b *ItemBuilder) WithRSSItemCategory(category string) *ItemBuilder {
+	category = strings.TrimSpace(category)
+	if category == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:itemCategory", Text: category})
+}
+
+func (b *ItemBuilder) WithRSSComments(url string) *ItemBuilder {
+	url = strings.TrimSpace(url)
+	if url == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_rss:comments", Text: url})
 }
 
