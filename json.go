@@ -323,3 +323,62 @@ func (f *Feed) ValidateJSON() error {
 	}
 	return nil
 }
+
+// WithJSONFeedExtension returns an ExtOption to append JSON Feed root-level extension keys.
+// Note: JSON extensions are flattened as name -> text pairs; complex objects/arrays are not supported.
+func WithJSONFeedExtension(fields JSONFeedFieldExtensions) ExtOption {
+	var nodes []ExtensionNode
+	// user_comment
+	if s := strings.TrimSpace(fields.UserComment); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "user_comment", Text: s})
+	}
+	// next_url
+	if s := strings.TrimSpace(fields.NextUrl); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "next_url", Text: s})
+	}
+	// expired
+	if fields.Expired != nil {
+		val := "false"
+		if *fields.Expired {
+			val = "true"
+		}
+		nodes = append(nodes, ExtensionNode{Name: "expired", Text: val})
+	}
+	// pass-through custom nodes
+	if len(fields.Exts) > 0 {
+		nodes = append(nodes, fields.Exts...)
+	}
+	return newFeedNodes(nodes...)
+}
+
+// WithJSONItemExtension returns an ExtOption to append JSON Feed item-level extension keys.
+// Note: tags are joined as a comma-separated string due to flattened key/value encoding.
+func WithJSONItemExtension(fields JSONItemFieldExtensions) ExtOption {
+	var nodes []ExtensionNode
+	// content_text
+	if s := strings.TrimSpace(fields.ContentText); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "content_text", Text: s})
+	}
+	// banner_image
+	if s := strings.TrimSpace(fields.BannerImage); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "banner_image", Text: s})
+	}
+	// tags (comma-separated)
+	if len(fields.Tags) > 0 {
+		var ts []string
+		for _, t := range fields.Tags {
+			t = strings.TrimSpace(t)
+			if t != "" {
+				ts = append(ts, t)
+			}
+		}
+		if len(ts) > 0 {
+			nodes = append(nodes, ExtensionNode{Name: "tags", Text: strings.Join(ts, ",")})
+		}
+	}
+	// pass-through custom nodes
+	if len(fields.Exts) > 0 {
+		nodes = append(nodes, fields.Exts...)
+	}
+	return newItemNodes(nodes...)
+}
