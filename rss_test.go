@@ -73,28 +73,17 @@ func TestRSSChannelRequiredElementsPresent(t *testing.T) {
 	f.Items = append(f.Items, newRSSBaseItem())
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
-	if !strings.Contains(xmlStr, `<rss version="2.0"`) {
-		t.Errorf("missing or wrong <rss version=\"2.0\"> root")
-	}
-	if !strings.Contains(xmlStr, "<title>Example RSS Feed</title>") {
-		t.Errorf("missing required channel title")
-	}
-	if !strings.Contains(xmlStr, "<link>https://example.org/</link>") {
-		t.Errorf("missing required channel link")
-	}
-	if !strings.Contains(xmlStr, "<description>A feed for RSS 2.0 tests.</description>") {
-		t.Errorf("missing required channel description")
-	}
+	mustContain(t, xmlStr, `<rss version="2.0"`, "missing or wrong <rss version=\"2.0\"> root")
+	mustContain(t, xmlStr, "<title>Example RSS Feed</title>", "missing required channel title")
+	mustContain(t, xmlStr, "<link>https://example.org/</link>", "missing required channel link")
+	mustContain(t, xmlStr, "<description>A feed for RSS 2.0 tests.</description>", "missing required channel description")
 
 	// Parse and verify date formats (RFC1123Z)
 	var doc rssRoot
-	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
-		t.Fatalf("xml unmarshal: %v", err)
-	}
+	mustNoErr(t, xml.Unmarshal([]byte(xmlStr), &doc), "xml unmarshal")
+
 	if _, err := time.Parse(time.RFC1123Z, doc.Channel.PubDate); err != nil {
 		t.Errorf("channel pubDate must be RFC1123Z, got %q: %v", doc.Channel.PubDate, err)
 	}
@@ -112,14 +101,10 @@ func TestRSSContentNamespaceWhenContentEncoded(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
 	// Expect content namespace declaration
-	if !strings.Contains(xmlStr, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`) {
-		t.Errorf("expected xmlns:content declaration when content:encoded is used")
-	}
+	mustContain(t, xmlStr, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`, "expected xmlns:content declaration when content:encoded is used")
 	// Expect content:encoded element
 	if !strings.Contains(xmlStr, "<content:encoded><![CDATA[") || !strings.Contains(xmlStr, "HTML Content") {
 		t.Errorf("expected content:encoded element with CDATA content")
@@ -137,14 +122,10 @@ func TestRSSEnclosureAttributesRequired(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
 	var doc rssRoot
-	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
-		t.Fatalf("xml unmarshal: %v", err)
-	}
+	mustNoErr(t, xml.Unmarshal([]byte(xmlStr), &doc), "xml unmarshal")
 	if len(doc.Channel.Items) == 0 {
 		t.Fatalf("expected at least one item")
 	}
@@ -168,14 +149,10 @@ func TestRSSItemAuthorUsesEmailPerSpec(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
 	var doc rssRoot
-	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
-		t.Fatalf("xml unmarshal: %v", err)
-	}
+	mustNoErr(t, xml.Unmarshal([]byte(xmlStr), &doc), "xml unmarshal")
 	got := doc.Channel.Items[0].Author
 	if got == "" || !strings.Contains(got, "@") {
 		t.Errorf("RSS 2.0 item author should be email address per spec; got %q", got)
@@ -190,13 +167,10 @@ func TestRSSItemGuidAndIsPermaLink(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
+
 	var doc rssRoot
-	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
-		t.Fatalf("xml unmarshal: %v", err)
-	}
+	mustNoErr(t, xml.Unmarshal([]byte(xmlStr), &doc), "xml unmarshal")
 	g := doc.Channel.Items[0].Guid
 	if g == nil {
 		t.Fatalf("expected guid element")
@@ -218,12 +192,8 @@ func TestRSSItemTitleOrDescriptionPresent(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
-	if !strings.Contains(xmlStr, "<title>Item 1</title>") {
-		t.Errorf("item should include at least a title or a description")
-	}
+	mustNoErr(t, err, "ToRSS failed")
+	mustContain(t, xmlStr, "<title>Item 1</title>", "item should include at least a title or a description")
 }
 
 func TestRSSDoesNotIncludePSPFields(t *testing.T) {
@@ -232,37 +202,20 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	f.Items = append(f.Items, item)
 
 	// Configure some generic fields; ensure PSP-only fields do not leak into plain RSS
-	f.FeedURL = "https://example.com/podcast.rss" // PSP adds atom:link rel=self - should not appear in plain RSS writer
+	f.FeedURL = "https://example.com/podcast.rss"
 	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
 	item.DurationSeconds = 42
 	f.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
-	// Assert PSP namespaces DO NOT appear
-	if strings.Contains(xmlStr, `xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"`) {
-		t.Errorf("unexpected itunes namespace in plain RSS output")
-	}
-	if strings.Contains(xmlStr, `xmlns:podcast="https://podcastindex.org/namespace/1.0"`) {
-		t.Errorf("unexpected podcast namespace in plain RSS output")
-	}
-	if strings.Contains(xmlStr, `xmlns:atom="http://www.w3.org/2005/Atom"`) {
-		t.Errorf("unexpected atom namespace in plain RSS output")
-	}
-
-	// Assert PSP elements DO NOT appear
-	if strings.Contains(xmlStr, "<itunes:") {
-		t.Errorf("unexpected itunes:* elements in plain RSS output")
-	}
-	if strings.Contains(xmlStr, "<podcast:") {
-		t.Errorf("unexpected podcast:* elements in plain RSS output")
-	}
-	if strings.Contains(xmlStr, "<atom:link") {
-		t.Errorf("unexpected atom:link in plain RSS output")
-	}
+	mustNotContain(t, xmlStr, `xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"`, "unexpected itunes namespace in plain RSS output")
+	mustNotContain(t, xmlStr, `xmlns:podcast="https://podcastindex.org/namespace/1.0"`, "unexpected podcast namespace in plain RSS output")
+	mustNotContain(t, xmlStr, `xmlns:atom="http://www.w3.org/2005/Atom"`, "unexpected atom namespace in plain RSS output")
+	mustNotContain(t, xmlStr, "<itunes:", "unexpected itunes:* elements in plain RSS output")
+	mustNotContain(t, xmlStr, "<podcast:", "unexpected podcast:* elements in plain RSS output")
+	mustNotContain(t, xmlStr, "<atom:link", "unexpected atom:link in plain RSS output")
 }
 
 func TestRSSExtensionNodesAllowed(t *testing.T) {
@@ -279,16 +232,12 @@ func TestRSSExtensionNodesAllowed(t *testing.T) {
 	}
 
 	xmlStr, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
-	if !strings.Contains(xmlStr, "<podcast:funding") || !strings.Contains(xmlStr, `url="https://example.com/fund"`) {
-		t.Errorf("expected podcast:funding extension in RSS output")
-	}
-	if !strings.Contains(xmlStr, "<itunes:image") || !strings.Contains(xmlStr, `href="https://example.com/cover.jpg"`) {
-		t.Errorf("expected itunes:image extension in RSS item output")
-	}
+	mustContain(t, xmlStr, "<podcast:funding", "expected podcast:funding extension in RSS output")
+	mustContain(t, xmlStr, `url="https://example.com/fund"`, "expected podcast:funding url attr in channel")
+	mustContain(t, xmlStr, "<itunes:image", "expected itunes:image extension in RSS item output")
+	mustContain(t, xmlStr, `href="https://example.com/cover.jpg"`, "expected itunes:image href in item")
 }
 
 func TestValidateRSS_Success(t *testing.T) {
@@ -383,56 +332,29 @@ func TestRSSBuilder_Helpers_ChannelAndItemFields_Moved(t *testing.T) {
 	b.AddItem(ib)
 
 	f, err := b.WithProfiles(gofeedx.ProfileRSS).Build()
-	if err != nil {
-		t.Fatalf("Build() unexpected error: %v", err)
-	}
+	mustNoErr(t, err, "Build() unexpected error")
+
 	xml, err := gofeedx.ToRSS(f)
-	if err != nil {
-		t.Fatalf("ToRSS failed: %v", err)
-	}
+	mustNoErr(t, err, "ToRSS failed")
 
 	// Channel-level checks
-	if !strings.Contains(xml, "<ttl>60</ttl>") {
-		t.Errorf("expected <ttl>60</ttl> in channel")
-	}
-	if !strings.Contains(xml, "<category>OverrideCat</category>") {
-		t.Errorf("expected channel category override")
-	}
-	if !strings.Contains(xml, "<webMaster>webmaster@example.org</webMaster>") {
-		t.Errorf("expected webMaster element")
-	}
-	if !strings.Contains(xml, "<generator>gofeedx</generator>") {
-		t.Errorf("expected generator element")
-	}
-	if !strings.Contains(xml, "<docs>https://example.org/docs</docs>") {
-		t.Errorf("expected docs element")
-	}
-	if !strings.Contains(xml, "<cloud>cloud svc</cloud>") {
-		t.Errorf("expected cloud element")
-	}
-	if !strings.Contains(xml, "<rating>PG</rating>") {
-		t.Errorf("expected rating element")
-	}
-	if !strings.Contains(xml, "<skipHours>1 2</skipHours>") {
-		t.Errorf("expected skipHours element")
-	}
-	if !strings.Contains(xml, "<skipDays>Mon Tue</skipDays>") {
-		t.Errorf("expected skipDays element")
-	}
+	mustContain(t, xml, "<ttl>60</ttl>", "expected <ttl>60</ttl> in channel")
+	mustContain(t, xml, "<category>OverrideCat</category>", "expected channel category override")
+	mustContain(t, xml, "<webMaster>webmaster@example.org</webMaster>", "expected webMaster element")
+	mustContain(t, xml, "<generator>gofeedx</generator>", "expected generator element")
+	mustContain(t, xml, "<docs>https://example.org/docs</docs>", "expected docs element")
+	mustContain(t, xml, "<cloud>cloud svc</cloud>", "expected cloud element")
+	mustContain(t, xml, "<rating>PG</rating>", "expected rating element")
+	mustContain(t, xml, "<skipHours>1 2</skipHours>", "expected skipHours element")
+	mustContain(t, xml, "<skipDays>Mon Tue</skipDays>", "expected skipDays element")
 
 	// Image size mapping
-	if !strings.Contains(xml, "<image>") || !strings.Contains(xml, "<width>144</width>") || !strings.Contains(xml, "<height>144</height>") {
-		t.Errorf("expected image with width/height from WithRSSImageSize")
-	}
+	mustContain(t, xml, "<image>", "expected image element in channel")
+	mustContain(t, xml, "<width>144</width>", "expected image width from WithRSSImageSize")
+	mustContain(t, xml, "<height>144</height>", "expected image height from WithRSSImageSize")
 
 	// Item-level checks for helpers
-	if !strings.Contains(xml, "<item>") {
-		t.Fatalf("expected an item in RSS output")
-	}
-	if !strings.Contains(xml, "<category>ItemCat</category>") {
-		t.Errorf("expected item category from WithRSSItemCategory")
-	}
-	if !strings.Contains(xml, "<comments>https://example.org/comments/1</comments>") {
-		t.Errorf("expected comments element from WithRSSComments")
-	}
+	mustContain(t, xml, "<item>", "expected an item in RSS output")
+	mustContain(t, xml, "<category>ItemCat</category>", "expected item category from WithRSSItemCategory")
+	mustContain(t, xml, "<comments>https://example.org/comments/1</comments>", "expected comments element from WithRSSComments")
 }

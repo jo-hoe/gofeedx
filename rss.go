@@ -97,76 +97,127 @@ func (r *Rss) FeedXml() interface{} {
 	return r.RssFeed().FeedXml()
 }
 
-// RssFeed builds the channel structure from the generic Feed.
-func (r *Rss) RssFeed() *RssFeed {
-	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
-	build := anyTimeFormat(time.RFC1123Z, r.Updated)
-	author := ""
-	if r.Author != nil {
-		author = r.Author.Email
-		if len(r.Author.Name) > 0 {
-			author = fmt.Sprintf("%s (%s)", r.Author.Email, r.Author.Name)
-		}
-	}
+// Internal helpers to reduce cyclomatic complexity.
 
-	// Extract unified RSS builder markers from feed extensions
-	imgW, imgH := 0, 0
-	ttl := 0
-	catOverride := ""
-	webMaster, generator, docs, cloud, rating, skipHours, skipDays := "", "", "", "", "", "", ""
-	var nonRSSExtras []ExtensionNode
-	for _, n := range r.Extensions {
+// rssAuthorString builds the RSS author string (email with optional name in parens).
+func rssAuthorString(a *Author) string {
+	if a == nil {
+		return ""
+	}
+	if s := strings.TrimSpace(a.Name); s != "" && strings.TrimSpace(a.Email) != "" {
+		return fmt.Sprintf("%s (%s)", a.Email, s)
+	}
+	return a.Email
+}
+
+type rssChannelExtras struct {
+	imgW, imgH                        int
+	ttl                               int
+	catOverride                       string
+	webMaster, generator, docs, cloud string
+	rating, skipHours, skipDays       string
+	nonRSSExtras                      []ExtensionNode
+}
+
+func extractRSSChannelExtras(exts []ExtensionNode) rssChannelExtras {
+	var out rssChannelExtras
+	for _, n := range exts {
 		switch n.Name {
 		case "_rss:imageSize":
 			if n.Attrs != nil {
 				if s, ok := n.Attrs["width"]; ok {
 					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
-						imgW = v
+						out.imgW = v
 					}
 				}
 				if s, ok := n.Attrs["height"]; ok {
 					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
-						imgH = v
+						out.imgH = v
 					}
 				}
 			}
 		case "_rss:ttl":
 			if t := strings.TrimSpace(n.Text); t != "" {
 				if v, err := strconv.Atoi(t); err == nil && v > 0 {
-					ttl = v
+					out.ttl = v
 				}
 			}
 		case "_rss:category":
-			catOverride = strings.TrimSpace(n.Text)
+			out.catOverride = strings.TrimSpace(n.Text)
 		case "_rss:webMaster":
-			webMaster = strings.TrimSpace(n.Text)
+			out.webMaster = strings.TrimSpace(n.Text)
 		case "_rss:generator":
-			generator = strings.TrimSpace(n.Text)
+			out.generator = strings.TrimSpace(n.Text)
 		case "_rss:docs":
-			docs = strings.TrimSpace(n.Text)
+			out.docs = strings.TrimSpace(n.Text)
 		case "_rss:cloud":
-			cloud = strings.TrimSpace(n.Text)
+			out.cloud = strings.TrimSpace(n.Text)
 		case "_rss:rating":
-			rating = strings.TrimSpace(n.Text)
+			out.rating = strings.TrimSpace(n.Text)
 		case "_rss:skipHours":
-			skipHours = strings.TrimSpace(n.Text)
+			out.skipHours = strings.TrimSpace(n.Text)
 		case "_rss:skipDays":
-			skipDays = strings.TrimSpace(n.Text)
+			out.skipDays = strings.TrimSpace(n.Text)
 		default:
-			nonRSSExtras = append(nonRSSExtras, n)
+			out.nonRSSExtras = append(out.nonRSSExtras, n)
 		}
 	}
+	return out
+}
 
-	var image *RssImage
-	if r.Image != nil {
-		image = &RssImage{
-			Url:    r.Image.Url,
-			Title:  r.Image.Title,
-			Link:   r.Image.Link,
-			Width:  imgW,
-			Height: imgH,
+func rssImageFromFeed(img *Image, w, h int) *RssImage {
+	if img == nil {
+		return nil
+	}
+	return &RssImage{
+		Url:    img.Url,
+		Title:  img.Title,
+		Link:   img.Link,
+		Width:  w,
+		Height: h,
+	}
+}
+
+func resolveChannelCategory(f *Feed, override string) string {
+	if s := strings.TrimSpace(override); s != "" {
+		return s
+	}
+	if len(f.Categories) > 0 && f.Categories[0] != nil && strings.TrimSpace(f.Categories[0].Text) != "" {
+		return strings.TrimSpace(f.Categories[0].Text)
+	}
+	return ""
+}
+
+func itemRSSExtensions(exts []ExtensionNode) (category, comments string, extras []ExtensionNode) {
+	for _, n := range exts {
+		switch n.Name {
+		case "_rss:itemCategory":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				category = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_rss:comments":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				comments = s
+			} else {
+				extras = append(extras, n)
+			}
+		default:
+			extras = append(extras, n)
 		}
 	}
+	return
+}
+
+// RssFeed builds the channel structure from the generic Feed.
+func (r *Rss) RssFeed() *RssFeed {
+	pub := anyTimeFormat(time.RFC1123Z, r.Created, r.Updated)
+	build := anyTimeFormat(time.RFC1123Z, r.Updated)
+	author := rssAuthorString(r.Author)
+
+	// Extract unified RSS builder markers from feed extensions
+	extras := extractRSSChannelExtras(r.Extensions)
 
 	var href string
 	if r.Link != nil {
@@ -180,24 +231,20 @@ func (r *Rss) RssFeed() *RssFeed {
 		PubDate:        pub,
 		LastBuildDate:  build,
 		Copyright:      r.Copyright,
-		Image:          image,
+		Image:          rssImageFromFeed(r.Image, extras.imgW, extras.imgH),
 		Language:       r.Language,
-		WebMaster:      webMaster,
-		Generator:      generator,
-		Docs:           docs,
-		Cloud:          cloud,
-		Ttl:            ttl,
-		Rating:         rating,
-		SkipHours:      skipHours,
-		SkipDays:       skipDays,
+		WebMaster:      extras.webMaster,
+		Generator:      extras.generator,
+		Docs:           extras.docs,
+		Cloud:          extras.cloud,
+		Ttl:            extras.ttl,
+		Rating:         extras.rating,
+		SkipHours:      extras.skipHours,
+		SkipDays:       extras.skipDays,
 	}
 
 	// Category override or generic mapping
-	if catOverride != "" {
-		channel.Category = catOverride
-	} else if len(r.Categories) > 0 && r.Categories[0] != nil && r.Categories[0].Text != "" {
-		channel.Category = r.Categories[0].Text
-	}
+	channel.Category = resolveChannelCategory(r.Feed, extras.catOverride)
 
 	// append items
 	for _, it := range r.Items {
@@ -205,8 +252,8 @@ func (r *Rss) RssFeed() *RssFeed {
 	}
 
 	// append non-RSS builder extensions
-	if len(nonRSSExtras) > 0 {
-		channel.Extra = append(channel.Extra, nonRSSExtras...)
+	if len(extras.nonRSSExtras) > 0 {
+		channel.Extra = append(channel.Extra, extras.nonRSSExtras...)
 	}
 	return channel
 }
@@ -215,11 +262,10 @@ func (r *Rss) RssFeed() *RssFeed {
 func (r *RssFeed) FeedXml() interface{} {
 	// Only add content namespace if any item has content:encoded
 	contentNS := ""
-scan:
 	for _, it := range r.Items {
 		if it.Content != nil && it.Content.Content != "" {
 			contentNS = "http://purl.org/rss/1.0/modules/content/"
-			break scan
+			break
 		}
 	}
 	return &RssFeedXml{
@@ -263,25 +309,9 @@ func newRssItem(i *Item) *RssItem {
 	}
 	// append extensions
 	if len(i.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range i.Extensions {
-			switch n.Name {
-			case "_rss:itemCategory":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.Category = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_rss:comments":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.Comments = s
-				} else {
-					extras = append(extras, n)
-				}
-			default:
-				extras = append(extras, n)
-			}
-		}
+		cat, comments, extras := itemRSSExtensions(i.Extensions)
+		item.Category = cat
+		item.Comments = comments
 		if len(extras) > 0 {
 			item.Extra = append(item.Extra, extras...)
 		}

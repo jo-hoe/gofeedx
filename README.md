@@ -1,4 +1,9 @@
-# gofeedx: builder-first, minimal-dependency feed generator for Go
+# gofeedx
+
+[![Test Status](https://github.com/jo-hoe/gofeedx/workflows/test/badge.svg)](https://github.com/jo-hoe/gofeedx/actions?workflow=test)
+[![Lint Status](https://github.com/jo-hoe/gofeedx/workflows/lint/badge.svg)](https://github.com/jo-hoe/gofeedx/actions?workflow=lint)
+[![Go Report Card](https://goreportcard.com/badge/github.com/jo-hoe/gofeedx)](https://goreportcard.com/report/github.com/jo-hoe/gofeedx)
+[![Coverage Status](https://coveralls.io/repos/github/jo-hoe/gofeedx/badge.svg?branch=main)](https://coveralls.io/github/jo-hoe/gofeedx?branch=main)
 
 gofeedx is a small Go library for generating feeds using only the Go standard library.
 It exposes a single, consistent, builder-based API and supports custom namespaced extensions via explicit ExtensionNode values. There is one way to build feeds: the builders. No legacy helpers remain.

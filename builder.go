@@ -190,71 +190,88 @@ func (b *FeedBuilder) WithSort(less func(a, b *Item) bool) *FeedBuilder {
 // Returns an error if any selected profile validation fails.
 func (b *FeedBuilder) Build() (*Feed, error) {
 	// Copy non-nil items
-	var items []*Item
-	for _, it := range b.items {
-		if it != nil {
-			items = append(items, it)
-		}
-	}
-	b.feed.Items = items
+	b.feed.Items = copyNonNilItems(b.items)
 
 	// Basic strict checks
 	if b.strict {
-		if strings.TrimSpace(b.feed.Title) == "" {
-			return nil, errors.New("builder: feed title required")
-		}
-		if len(b.feed.Items) == 0 {
-			return nil, errors.New("builder: at least one item required")
+		if err := builderStrictChecks(&b.feed); err != nil {
+			return nil, err
 		}
 	}
 
 	// Defaults for Atom Updated
-	if containsProfile(b.profiles, ProfileAtom) {
-		if b.feed.Updated.IsZero() {
-			b.feed.Updated = maxTime(collectItemTimes(b.feed.Items)...)
-		}
+	if containsProfile(b.profiles, ProfileAtom) && b.feed.Updated.IsZero() {
+		b.feed.Updated = maxTime(collectItemTimes(b.feed.Items)...)
 	}
 
 	// Auto IDs for items when Atom/JSON/PSP targets are selected
 	if containsAnyProfile(b.profiles, ProfileAtom, ProfileJSON, ProfilePSP) {
-		for _, it := range b.feed.Items {
-			if strings.TrimSpace(it.ID) == "" {
-				it.ID = fallbackItemGuid(it) // stable tag: or uuid v4 urn
-				// For RSS/PSP GUID permalink flag is optional; default to "false" when auto-set
-				if it.IsPermaLink == "" {
-					it.IsPermaLink = "false"
-				}
-			}
-		}
+		ensureItemIDs(b.feed.Items)
 	}
 
 	// Final profile validations
+	if err := runProfileValidations(&b.feed, b.profiles); err != nil {
+		return nil, err
+	}
+	return &b.feed, nil
+}
+
+func copyNonNilItems(items []*Item) []*Item {
+	var out []*Item
+	for _, it := range items {
+		if it != nil {
+			out = append(out, it)
+		}
+	}
+	return out
+}
+
+func builderStrictChecks(f *Feed) error {
+	if strings.TrimSpace(f.Title) == "" {
+		return errors.New("builder: feed title required")
+	}
+	if len(f.Items) == 0 {
+		return errors.New("builder: at least one item required")
+	}
+	// enclosure checks delegated to ItemBuilder strict mode; feed-level has none
+	return nil
+}
+
+func ensureItemIDs(items []*Item) {
+	for _, it := range items {
+		if strings.TrimSpace(it.ID) == "" {
+			it.ID = fallbackItemGuid(it) // stable tag: or uuid v4 urn
+			// For RSS/PSP GUID permalink flag is optional; default to "false" when auto-set
+			if it.IsPermaLink == "" {
+				it.IsPermaLink = "false"
+			}
+		}
+	}
+}
+
+func runProfileValidations(f *Feed, profiles []Profile) error {
 	var verr error
-	for _, p := range b.profiles {
+	for _, p := range profiles {
 		switch p {
 		case ProfileRSS:
-			if err := ValidateRSS(&b.feed); err != nil {
+			if err := ValidateRSS(f); err != nil {
 				verr = errors.Join(verr, err)
 			}
 		case ProfileAtom:
-			if err := ValidateAtom(&b.feed); err != nil {
+			if err := ValidateAtom(f); err != nil {
 				verr = errors.Join(verr, err)
 			}
 		case ProfilePSP:
-			if err := ValidatePSP(&b.feed); err != nil {
+			if err := ValidatePSP(f); err != nil {
 				verr = errors.Join(verr, err)
 			}
 		case ProfileJSON:
-			// JSON requires item IDs; already defaulted above if selected
-			if err := ValidateJSON(&b.feed); err != nil {
+			if err := ValidateJSON(f); err != nil {
 				verr = errors.Join(verr, err)
 			}
 		}
 	}
-	if verr != nil {
-		return nil, verr
-	}
-	return &b.feed, nil
+	return verr
 }
 
 func containsProfile(set []Profile, p Profile) bool {

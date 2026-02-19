@@ -139,96 +139,226 @@ func (f *JSONFeed) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m)
 }
 
-// JSONFeed creates a new JSONFeed with a generic Feed struct's data.
-func (f *JSON) JSONFeed() *JSONFeed {
+// Internal helpers to reduce cyclomatic complexity for JSON conversion.
+
+func jsonFeedBaseFromFeed(f *Feed) *JSONFeed {
 	feed := &JSONFeed{
 		Version:     jsonFeedVersion,
 		Language:    f.Language,
 		Title:       f.Title,
 		Description: f.Description,
 	}
-
 	if f.Link != nil {
 		feed.HomePageUrl = f.Link.Href
 	}
 	if f.FeedURL != "" {
 		feed.FeedUrl = f.FeedURL
 	}
-	if f.Image != nil && f.Image.Url != "" {
-		if feed.Icon == "" {
-			feed.Icon = f.Image.Url
-		}
-		if feed.Favicon == "" {
-			feed.Favicon = f.Image.Url
-		}
-	}
 	if f.Author != nil {
-		author := &JSONAuthor{
-			Name: f.Author.Name,
-		}
-		feed.Authors = []*JSONAuthor{author}
+		feed.Authors = jsonAuthorsFromAuthor(f.Author)
 	}
-	for _, e := range f.Items {
-		feed.Items = append(feed.Items, newJSONItem(e))
+	applyFeedIconsFromImage(feed, f.Image)
+	return feed
+}
+
+func jsonAuthorsFromAuthor(a *Author) []*JSONAuthor {
+	if a == nil {
+		return nil
 	}
-	// Copy unified extensions for JSON flattening, mapping known helpers to typed fields
-	if len(f.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range f.Extensions {
-			name := strings.TrimSpace(strings.ToLower(n.Name))
-			switch name {
-			case "_json:user_comment":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.UserComment = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:next_url":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.NextUrl = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:expired":
-				switch strings.ToLower(strings.TrimSpace(n.Text)) {
-				case "true":
-					v := true
-					feed.Expired = &v
-				case "false":
-					v := false
-					feed.Expired = &v
-				default:
-					extras = append(extras, n)
-				}
-			case "_json:hub":
-				var ht, hu string
-				if n.Attrs != nil {
-					ht = strings.TrimSpace(n.Attrs["type"])
-					hu = strings.TrimSpace(n.Attrs["url"])
-				}
-				if ht != "" && hu != "" {
-					feed.Hubs = append(feed.Hubs, &JSONHub{Type: ht, Url: hu})
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:icon":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.Icon = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:favicon":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.Favicon = s
-				} else {
-					extras = append(extras, n)
-				}
+	return []*JSONAuthor{{Name: a.Name}}
+}
+
+func applyFeedIconsFromImage(feed *JSONFeed, img *Image) {
+	if img == nil || strings.TrimSpace(img.Url) == "" {
+		return
+	}
+	if strings.TrimSpace(feed.Icon) == "" {
+		feed.Icon = img.Url
+	}
+	if strings.TrimSpace(feed.Favicon) == "" {
+		feed.Favicon = img.Url
+	}
+}
+
+func mapFeedExtensionsToJSON(feed *JSONFeed, exts []ExtensionNode) {
+	if len(exts) == 0 {
+		return
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		switch name {
+		case "_json:user_comment":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.UserComment = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:next_url":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.NextUrl = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:expired":
+			switch strings.ToLower(strings.TrimSpace(n.Text)) {
+			case "true":
+				v := true
+				feed.Expired = &v
+			case "false":
+				v := false
+				feed.Expired = &v
 			default:
 				extras = append(extras, n)
 			}
+		case "_json:hub":
+			var ht, hu string
+			if n.Attrs != nil {
+				ht = strings.TrimSpace(n.Attrs["type"])
+				hu = strings.TrimSpace(n.Attrs["url"])
+			}
+			if ht != "" && hu != "" {
+				feed.Hubs = append(feed.Hubs, &JSONHub{Type: ht, Url: hu})
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:icon":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.Icon = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:favicon":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.Favicon = s
+			} else {
+				extras = append(extras, n)
+			}
+		default:
+			extras = append(extras, n)
 		}
-		feed.Exts = extras
 	}
+	feed.Exts = extras
+}
+
+func jsonItemBase(i *Item) *JSONItem {
+	id := strings.TrimSpace(i.ID)
+	if id == "" {
+		id = fallbackItemGuid(i)
+	}
+	item := &JSONItem{
+		Id:          id,
+		Title:       i.Title,
+		Summary:     i.Description,
+		ContentHTML: i.Content,
+	}
+	if i.Link != nil {
+		item.Url = i.Link.Href
+	}
+	if i.Source != nil {
+		item.ExternalUrl = i.Source.Href
+	}
+	if i.Author != nil {
+		item.Authors = jsonAuthorsFromAuthor(i.Author)
+	}
+	if !i.Created.IsZero() {
+		item.PublishedDate = &i.Created
+	}
+	if !i.Updated.IsZero() {
+		item.ModifiedDate = &i.Updated
+	}
+	return item
+}
+
+func addItemEnclosure(j *JSONItem, i *Item) {
+	if i.Enclosure == nil {
+		return
+	}
+	// If it's an image, map to JSON Feed's "image"
+	if strings.HasPrefix(i.Enclosure.Type, "image/") {
+		j.Image = i.Enclosure.Url
+		return
+	}
+	// Otherwise, add as an attachment with optional duration
+	var sz int32
+	if i.Enclosure.Length > maxSize {
+		sz = maxSize
+	} else if i.Enclosure.Length > 0 {
+		sz = int32(i.Enclosure.Length)
+	}
+	att := jsonAttachment{
+		Url:      i.Enclosure.Url,
+		MIMEType: i.Enclosure.Type,
+		Size:     sz,
+	}
+	if i.DurationSeconds > 0 {
+		att.Duration = time.Duration(i.DurationSeconds) * time.Second
+	}
+	j.Attachments = append(j.Attachments, att)
+}
+
+func mapItemExtensionsToJSON(ji *JSONItem, exts []ExtensionNode) {
+	if len(exts) == 0 {
+		return
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		switch name {
+		case "_json:content_text":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				ji.ContentText = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:banner_image":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				ji.BannerImage = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:tags":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				parts := strings.Split(s, ",")
+				for _, p := range parts {
+					if t := strings.TrimSpace(p); t != "" {
+						ji.Tags = append(ji.Tags, t)
+					}
+				}
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:tag":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				ji.Tags = append(ji.Tags, s)
+			} else {
+				extras = append(extras, n)
+			}
+		case "_json:image":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				ji.Image = s
+			} else {
+				extras = append(extras, n)
+			}
+		default:
+			extras = append(extras, n)
+		}
+	}
+	ji.Exts = extras
+}
+
+// JSONFeed creates a new JSONFeed with a generic Feed struct's data.
+func (f *JSON) JSONFeed() *JSONFeed {
+	feed := jsonFeedBaseFromFeed(f.Feed)
+
+	// Items
+	for _, e := range f.Items {
+		ji := newJSONItem(e)
+		feed.Items = append(feed.Items, ji)
+	}
+
+	// Extensions mapping and flattening extras
+	mapFeedExtensionsToJSON(feed, f.Extensions)
 	return feed
 }
 
@@ -256,109 +386,9 @@ func (ji *JSONItem) MarshalJSON() ([]byte, error) {
 }
 
 func newJSONItem(i *Item) *JSONItem {
-	// Ensure id is non-empty per JSON Feed spec
-	id := i.ID
-	if id == "" {
-		id = fallbackItemGuid(i)
-	}
-	item := &JSONItem{
-		Id:          id,
-		Title:       i.Title,
-		Summary:     i.Description,
-		ContentHTML: i.Content, // Use HTML when Content present
-	}
-
-	if i.Link != nil {
-		item.Url = i.Link.Href
-	}
-	if i.Source != nil {
-		item.ExternalUrl = i.Source.Href
-	}
-	if i.Author != nil {
-		author := &JSONAuthor{
-			Name: i.Author.Name,
-		}
-		item.Authors = []*JSONAuthor{author}
-	}
-	if !i.Created.IsZero() {
-		item.PublishedDate = &i.Created
-	}
-	if !i.Updated.IsZero() {
-		item.ModifiedDate = &i.Updated
-	}
-	// Map enclosure:
-	// - If it's an image, map to JSON Feed's "image"
-	// - Otherwise, add as an attachment with optional duration
-	if i.Enclosure != nil {
-		if strings.HasPrefix(i.Enclosure.Type, "image/") {
-			item.Image = i.Enclosure.Url
-		} else {
-			var sz int32
-			if i.Enclosure.Length > maxSize {
-				sz = maxSize
-			} else if i.Enclosure.Length > 0 {
-				sz = int32(i.Enclosure.Length)
-			}
-			att := jsonAttachment{
-				Url:      i.Enclosure.Url,
-				MIMEType: i.Enclosure.Type,
-				Size:     sz,
-			}
-			if i.DurationSeconds > 0 {
-				att.Duration = time.Duration(i.DurationSeconds) * time.Second
-			}
-			item.Attachments = append(item.Attachments, att)
-		}
-	}
-
-	// Map known JSON item helpers and keep others for flattening
-	if len(i.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range i.Extensions {
-			name := strings.TrimSpace(strings.ToLower(n.Name))
-			switch name {
-			case "_json:content_text":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.ContentText = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:banner_image":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.BannerImage = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:tags":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					parts := strings.Split(s, ",")
-					for _, p := range parts {
-						if t := strings.TrimSpace(p); t != "" {
-							item.Tags = append(item.Tags, t)
-						}
-					}
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:tag":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.Tags = append(item.Tags, s)
-				} else {
-					extras = append(extras, n)
-				}
-			case "_json:image":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					item.Image = s
-				} else {
-					extras = append(extras, n)
-				}
-			default:
-				extras = append(extras, n)
-			}
-		}
-		item.Exts = extras
-	}
-
+	item := jsonItemBase(i)
+	addItemEnclosure(item, i)
+	mapItemExtensionsToJSON(item, i.Extensions)
 	return item
 }
 
