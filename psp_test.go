@@ -562,3 +562,92 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 		t.Errorf("expected podcast:transcript on item")
 	}
 }
+
+// Added to consolidate helper tests into psp_test.go using public API
+
+func TestPSPFallbackGuid_TagAndURN_PublicAPI(t *testing.T) {
+	// Case 1: item without ID but with Link+Created -> tag: URI generated
+	feed1 := &gofeedx.Feed{
+		Title:       "Show",
+		Link:        &gofeedx.Link{Href: "https://example.com"},
+		Description: "d",
+		Language:    "en-us",
+		FeedURL:     "https://example.com/podcast.rss",
+		Categories:  []*gofeedx.Category{{Text: "Tech"}},
+	}
+	item1 := &gofeedx.Item{
+		Title:   "E1",
+		Link:    &gofeedx.Link{Href: "https://example.com/ep/1"},
+		Created: time.Date(2024, 2, 3, 0, 0, 0, 0, time.UTC),
+		Enclosure: &gofeedx.Enclosure{
+			Url:    "https://cdn.example.com/ep1.mp3",
+			Type:   "audio/mpeg",
+			Length: 10,
+		},
+	}
+	feed1.Items = []*gofeedx.Item{item1}
+	xml1, err := gofeedx.ToPSP(feed1)
+	if err != nil {
+		t.Fatalf("ToPSP error: %v", err)
+	}
+	if !strings.Contains(xml1, "<guid>tag:example.com,2024-02-03:/ep/1</guid>") {
+		t.Errorf("expected tag: guid for item1, got: %s", xml1)
+	}
+
+	// Case 2: item without ID and without Link/Created -> urn:uuid generated
+	feed2 := &gofeedx.Feed{
+		Title:       "Show",
+		Link:        &gofeedx.Link{Href: "https://example.com"},
+		Description: "d",
+		Language:    "en-us",
+		FeedURL:     "https://example.com/podcast.rss",
+		Categories:  []*gofeedx.Category{{Text: "Tech"}},
+	}
+	item2 := &gofeedx.Item{
+		Title: "E2",
+		Enclosure: &gofeedx.Enclosure{
+			Url:    "https://cdn.example.com/ep2.mp3",
+			Type:   "audio/mpeg",
+			Length: 10,
+		},
+	}
+	feed2.Items = []*gofeedx.Item{item2}
+	xml2, err := gofeedx.ToPSP(feed2)
+	if err != nil {
+		t.Fatalf("ToPSP error: %v", err)
+	}
+	if !strings.Contains(xml2, "<guid>urn:uuid:") {
+		t.Errorf("expected urn:uuid fallback for item2, got: %s", xml2)
+	}
+}
+
+func TestPSPPodcastGUIDFromURL_UppercaseScheme(t *testing.T) {
+	// normalizeFeedURL only trims lowercase http/https/feed; uppercase HTTPS:// remains
+	feed := &gofeedx.Feed{
+		Title:       "Upper",
+		Link:        &gofeedx.Link{Href: "https://example.com"},
+		Description: "d",
+		Language:    "en-us",
+		FeedURL:     "HTTPS://example.com/podcast.rss",
+		Categories:  []*gofeedx.Category{{Text: "News"}},
+	}
+	feed.Items = append(feed.Items, &gofeedx.Item{
+		Title:   "Episode X",
+		ID:      "x",
+		Created: time.Now(),
+		Enclosure: &gofeedx.Enclosure{
+			Url:    "https://example.com/audio/x.mp3",
+			Type:   "audio/mpeg",
+			Length: 100,
+		},
+	})
+	xml, err := gofeedx.ToPSP(feed)
+	if err != nil {
+		t.Fatalf("ToPSP error: %v", err)
+	}
+	// Expected GUID uses name "HTTPS://example.com/podcast.rss" because scheme wasn't stripped
+	expected := uuidV5("ead4c236-bf58-58c6-a2c6-a6b28d128cb6", "HTTPS://example.com/podcast.rss")
+	if !strings.Contains(xml, "<podcast:guid>"+expected+"</podcast:guid>") {
+		t.Errorf("expected podcast:guid %s, got: %s", expected, xml)
+	}
+}

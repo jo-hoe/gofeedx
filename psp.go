@@ -563,9 +563,9 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 	}
 	// guid required
 	if it.ID != "" {
-		pi.Guid = &RssGuid{ID: it.ID, IsPermaLink: it.IsPermaLink}
+		pi.Guid = &RssGuid{ID: it.ID}
 	} else {
-		pi.Guid = &RssGuid{ID: fallbackItemGuid(it), IsPermaLink: "false"}
+		pi.Guid = &RssGuid{ID: fallbackItemGuid(it)}
 	}
 
 	// iTunes item fields (from generic feed where available)

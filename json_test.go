@@ -15,6 +15,178 @@ type jfAuthor struct {
 	Avatar string `json:"avatar,omitempty"`
 }
 
+func TestJSONBuilder_Helpers_TopLevel(t *testing.T) {
+	// Build feed using JSON-specific builder helpers
+	b := gofeedx.NewFeed("JSON Title").
+		WithLink("https://example.org/").
+		WithDescription("Desc").
+		WithLanguage("en").
+		WithJSONUserComment("Hello Users").
+		WithJSONNextURL("https://example.org/next").
+		WithJSONExpired(true).
+		WithJSONHub("rssCloud", "https://example.org/hub").
+		WithJSONIcon("https://example.org/icon.png").
+		WithJSONFavicon("https://example.org/favicon.ico")
+
+	// Minimal item with explicit ID to satisfy validation when building with ProfileJSON
+	ib := gofeedx.NewItem("Item 1").
+		WithID("id-1").
+		WithCreated(time.Now().UTC())
+	b.AddItem(ib)
+
+	f, err := b.WithProfiles(gofeedx.ProfileJSON).Build()
+	if err != nil {
+		t.Fatalf("Build() unexpected error: %v", err)
+	}
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+
+	if obj["user_comment"] != "Hello Users" {
+		t.Errorf("expected user_comment from WithJSONUserComment, got %v", obj["user_comment"])
+	}
+	if obj["next_url"] != "https://example.org/next" {
+		t.Errorf("expected next_url from WithJSONNextURL, got %v", obj["next_url"])
+	}
+	if obj["icon"] != "https://example.org/icon.png" {
+		t.Errorf("expected icon override from WithJSONIcon, got %v", obj["icon"])
+	}
+	if obj["favicon"] != "https://example.org/favicon.ico" {
+		t.Errorf("expected favicon override from WithJSONFavicon, got %v", obj["favicon"])
+	}
+	// expired should be true pointer
+	if exp, ok := obj["expired"].(bool); !ok || !exp {
+		t.Errorf("expected expired=true, got %v", obj["expired"])
+	}
+	// hubs should be an array with one entry
+	if hubs, ok := obj["hubs"].([]any); !ok || len(hubs) != 1 {
+		t.Fatalf("expected one hub entry, got %v", obj["hubs"])
+	}
+}
+
+func TestJSONBuilder_Helpers_ItemLevel(t *testing.T) {
+	b := gofeedx.NewFeed("JSON Title").
+		WithLink("https://example.org/")
+
+	ib := gofeedx.NewItem("Item 1").
+		WithID("id-1").
+		WithCreated(time.Now().UTC()).
+		WithJSONContentText("Plain text").
+		WithJSONBannerImage("https://example.org/banner.jpg").
+		WithJSONTags("tag1", "tag2").
+		WithJSONTag("tag3").
+		WithJSONImage("https://example.org/img.png")
+	b.AddItem(ib)
+
+	f, err := b.WithProfiles(gofeedx.ProfileJSON).Build()
+	if err != nil {
+		t.Fatalf("Build() unexpected error: %v", err)
+	}
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+
+	// quick checks
+	if !strings.Contains(js, `"content_text": "Plain text"`) {
+		t.Errorf("expected content_text from WithJSONContentText")
+	}
+	if !strings.Contains(js, `"banner_image": "https://example.org/banner.jpg"`) {
+		t.Errorf("expected banner_image from WithJSONBannerImage")
+	}
+	// tags array should contain 3 entries
+	if strings.Count(js, `"tags":`) == 0 ||
+		!strings.Contains(js, `"tag1"`) ||
+		!strings.Contains(js, `"tag2"`) ||
+		!strings.Contains(js, `"tag3"`) {
+		t.Errorf("expected tags array to include tag1, tag2, tag3")
+	}
+	if !strings.Contains(js, `"image": "https://example.org/img.png"`) {
+		t.Errorf("expected image override from WithJSONImage")
+	}
+}
+
+func TestJSONAttachment_MarshalJSON_DurationOptional(t *testing.T) {
+	att := gofeedx.JSONAttachment{
+		Url:      "https://cdn.example.org/a.mp3",
+		MIMEType: "audio/mpeg",
+		Size:     123,
+		Duration: 0,
+	}
+	b1, err := json.Marshal(&att)
+	if err != nil {
+		t.Fatalf("json.Marshal(att) error: %v", err)
+	}
+	if strings.Contains(string(b1), "duration_in_seconds") {
+		t.Errorf("duration_in_seconds should be omitted when Duration == 0")
+	}
+	att.Duration = 5 * time.Second
+	b2, err := json.Marshal(&att)
+	if err != nil {
+		t.Fatalf("json.Marshal(att) with duration error: %v", err)
+	}
+	if !strings.Contains(string(b2), `"duration_in_seconds":5`) {
+		t.Errorf("expected duration_in_seconds==5, got %s", string(b2))
+	}
+}
+
+func TestJSONItem_AttachmentsMapping_SizeCappedAndDuration(t *testing.T) {
+	// Build a feed with one item that has a non-image enclosure -> becomes attachment.
+	// Length exceeds maxSize -> capped. DurationSeconds -> duration_in_seconds.
+	enclosureLen := int64(2147483647) + 100 // using cap logic implicitly via json.go
+	item := &gofeedx.Item{
+		Title:           "Episode",
+		Link:            &gofeedx.Link{Href: "https://example.org/ep"},
+		ID:              "id-1",
+		Created:         time.Now().UTC(),
+		Enclosure:       &gofeedx.Enclosure{Url: "https://cdn.example.org/ep.mp3", Type: "audio/mpeg", Length: enclosureLen},
+		DurationSeconds: 7,
+	}
+	feed := &gofeedx.Feed{
+		Title: "JSON feed",
+		Items: []*gofeedx.Item{item},
+	}
+
+	js, err := (&gofeedx.JSON{Feed: feed}).ToJSONString()
+	if err != nil {
+		t.Fatalf("ToJSONString() error: %v", err)
+	}
+
+	// Unmarshal loosely to inspect attachments
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	items, _ := obj["items"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("expected items array")
+	}
+	first, _ := items[0].(map[string]any)
+	atts, _ := first["attachments"].([]any)
+	if len(atts) != 1 {
+		t.Fatalf("expected one attachment, got %d", len(atts))
+	}
+	a0, _ := atts[0].(map[string]any)
+	if a0["url"] != "https://cdn.example.org/ep.mp3" {
+		t.Errorf("attachment url got %v", a0["url"])
+	}
+	if a0["mime_type"] != "audio/mpeg" {
+		t.Errorf("attachment mime_type got %v", a0["mime_type"])
+	}
+	// size should be capped to maxSize (int32 cap reflected as float64 in JSON)
+	if a0["size"] != float64(2147483647) {
+		t.Errorf("attachment size expected %d, got %v", 2147483647, a0["size"])
+	}
+	if a0["duration_in_seconds"] != float64(7) {
+		t.Errorf("attachment duration_in_seconds expected 7, got %v", a0["duration_in_seconds"])
+	}
+}
+
 type jfItem struct {
 	Id            string      `json:"id"`
 	Url           string      `json:"url,omitempty"`
