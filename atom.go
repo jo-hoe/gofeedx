@@ -49,38 +49,46 @@ type AtomLink struct {
 }
 
 type AtomEntry struct {
+	*AtomEntryExtensionFields
+	Title     string       `xml:"title"` // required
+	Links     []AtomLink   // required if no child 'content' elements
+	Source    string       `xml:"source,omitempty"`
+	Author    *AtomAuthor  // required if feed lacks an author
+	Summary   *AtomSummary // required if content has src or content is base64
+	Content   *AtomContent
+	Id        string `xml:"id"`      // required
+	Updated   string `xml:"updated"` // required
+	Published string `xml:"published,omitempty"`
+}
+
+type AtomEntryExtensionFields struct {
 	XMLName     xml.Name `xml:"entry"`
 	Xmlns       string   `xml:"xmlns,attr,omitempty"`
-	Title       string   `xml:"title"`   // required
-	Updated     string   `xml:"updated"` // required
-	Id          string   `xml:"id"`      // required
 	Category    string   `xml:"category,omitempty"`
-	Content     *AtomContent
-	Rights      string `xml:"rights,omitempty"`
-	Source      string `xml:"source,omitempty"`
-	Published   string `xml:"published,omitempty"`
+	Rights      string   `xml:"rights,omitempty"`
 	Contributor *AtomContributor
-	Links       []AtomLink      // required if no child 'content' elements
-	Summary     *AtomSummary    // required if content has src or content is base64
-	Author      *AtomAuthor     // required if feed lacks an author
 	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
 
 type AtomFeed struct {
+	*AtomFeedExtensionFields
+	Title    string `xml:"title"` // required
+	Link     *AtomLink
+	Subtitle string       `xml:"subtitle,omitempty"`
+	Author   *AtomAuthor  `xml:"author,omitempty"`
+	Updated  string       `xml:"updated"` // required
+	Id       string       `xml:"id"`      // required
+	Entries  []*AtomEntry `xml:"entry"`
+	Category string       `xml:"category,omitempty"`
+	Rights   string       `xml:"rights,omitempty"` // copyright used
+	Logo     string       `xml:"logo,omitempty"`
+}
+
+type AtomFeedExtensionFields struct {
 	XMLName     xml.Name `xml:"feed"`
 	Xmlns       string   `xml:"xmlns,attr"`
-	Title       string   `xml:"title"`   // required
-	Id          string   `xml:"id"`      // required
-	Updated     string   `xml:"updated"` // required
-	Category    string   `xml:"category,omitempty"`
 	Icon        string   `xml:"icon,omitempty"`
-	Logo        string   `xml:"logo,omitempty"`
-	Rights      string   `xml:"rights,omitempty"` // copyright used
-	Subtitle    string   `xml:"subtitle,omitempty"`
-	Link        *AtomLink
-	Author      *AtomAuthor `xml:"author,omitempty"`
 	Contributor *AtomContributor
-	Entries     []*AtomEntry    `xml:"entry"`
 	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
 
@@ -126,7 +134,9 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		link = &Link{}
 	}
 	feed := &AtomFeed{
-		Xmlns:    atomNS,
+		AtomFeedExtensionFields: &AtomFeedExtensionFields{
+			Xmlns: atomNS,
+		},
 		Title:    a.Title,
 		Link:     &AtomLink{Href: link.Href, Rel: "alternate"},
 		Subtitle: a.Description,
@@ -243,6 +253,11 @@ func newAtomEntry(i *Item) *AtomEntry {
 
 	// Custom item/entry extensions
 	if len(i.Extensions) > 0 {
+		if x.AtomEntryExtensionFields == nil {
+			x.AtomEntryExtensionFields = &AtomEntryExtensionFields{
+				Xmlns: atomNS,
+			}
+		}
 		x.Extra = append(x.Extra, i.Extensions...)
 	}
 	return x
@@ -296,4 +311,33 @@ func (f *Feed) ValidateAtom() error {
 		}
 	}
 	return nil
+}
+
+func WithAtomFeedExtension(fields AtomFeedExtensionFields) ExtOption {
+	var nodes []ExtensionNode
+	// atom:icon
+	if s := strings.TrimSpace(fields.Icon); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "icon", Text: s})
+	}
+	// atom:contributor
+	if fields.Contributor != nil {
+		var children []ExtensionNode
+		if s := strings.TrimSpace(fields.Contributor.Name); s != "" {
+			children = append(children, ExtensionNode{Name: "name", Text: s})
+		}
+		if s := strings.TrimSpace(fields.Contributor.Uri); s != "" {
+			children = append(children, ExtensionNode{Name: "uri", Text: s})
+		}
+		if s := strings.TrimSpace(fields.Contributor.Email); s != "" {
+			children = append(children, ExtensionNode{Name: "email", Text: s})
+		}
+		if len(children) > 0 {
+			nodes = append(nodes, ExtensionNode{Name: "contributor", Children: children})
+		}
+	}
+	// pass-through custom nodes
+	if len(fields.Extra) > 0 {
+		nodes = append(nodes, fields.Extra...)
+	}
+	return newFeedNodes(nodes...)
 }
