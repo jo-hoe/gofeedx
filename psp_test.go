@@ -437,9 +437,6 @@ func TestPSPExtensionsAllowed(t *testing.T) {
 	}
 }
 
-// helpers for pointer literals in tests
-func boolPtr(b bool) *bool { return &b }
-func intPtr(i int) *int    { return &i }
 
 // Test that PSP builder-style channel extras are applied.
 func TestPSPBuilderChannelExtrasApplied(t *testing.T) {

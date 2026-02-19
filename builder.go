@@ -156,10 +156,7 @@ func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
 	if ib == nil {
 		return b
 	}
-	it, err := ib.Build()
-	if err != nil && b.strict {
-		// Ignore item build error; nil items are appended and filtered in Build().
-	}
+	it, _ := ib.Build()
 	b.items = append(b.items, it) // it may be nil if ib.Build() failed in lenient mode; filter in Build()
 	return b
 }
