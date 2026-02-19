@@ -112,26 +112,56 @@ func TestJSONBuilder_Helpers_ItemLevel(t *testing.T) {
 }
 
 func TestJSONAttachment_MarshalJSON_DurationOptional(t *testing.T) {
-	att := gofeedx.JSONAttachment{
-		Url:      "https://cdn.example.org/a.mp3",
-		MIMEType: "audio/mpeg",
-		Size:     123,
-		Duration: 0,
+	// Build a feed with one item and non-image enclosure to produce attachments.
+	item := &gofeedx.Item{
+		Title:   "Episode",
+		Link:    &gofeedx.Link{Href: "https://example.org/ep"},
+		ID:      "id-1",
+		Created: time.Now().UTC(),
+		Enclosure: &gofeedx.Enclosure{
+			Url:    "https://cdn.example.org/a.mp3",
+			Type:   "audio/mpeg",
+			Length: 123,
+		},
+		DurationSeconds: 0,
 	}
-	b1, err := json.Marshal(&att)
+	feed := &gofeedx.Feed{
+		Title: "JSON feed",
+		Items: []*gofeedx.Item{item},
+	}
+
+	// Case 1: DurationSeconds == 0 -> duration_in_seconds omitted
+	js1, err := gofeedx.ToJSON(feed)
 	if err != nil {
-		t.Fatalf("json.Marshal(att) error: %v", err)
+		t.Fatalf("ToJSONString() error: %v", err)
 	}
-	if strings.Contains(string(b1), "duration_in_seconds") {
-		t.Errorf("duration_in_seconds should be omitted when Duration == 0")
+	if strings.Contains(js1, "duration_in_seconds") {
+		t.Errorf("duration_in_seconds should be omitted when DurationSeconds == 0")
 	}
-	att.Duration = 5 * time.Second
-	b2, err := json.Marshal(&att)
+
+	// Case 2: DurationSeconds > 0 -> duration_in_seconds present
+	item.DurationSeconds = 5
+	js2, err := gofeedx.ToJSON(feed)
 	if err != nil {
-		t.Fatalf("json.Marshal(att) with duration error: %v", err)
+		t.Fatalf("ToJSONString() error (with duration): %v", err)
 	}
-	if !strings.Contains(string(b2), `"duration_in_seconds":5`) {
-		t.Errorf("expected duration_in_seconds==5, got %s", string(b2))
+	// Parse JSON to robustly assert the numeric value (indentation/spacing may vary)
+	var obj2 map[string]any
+	if err := json.Unmarshal([]byte(js2), &obj2); err != nil {
+		t.Fatalf("json.Unmarshal (case2): %v", err)
+	}
+	items2, _ := obj2["items"].([]any)
+	if len(items2) == 0 {
+		t.Fatalf("expected items array (case2)")
+	}
+	first2, _ := items2[0].(map[string]any)
+	atts2, _ := first2["attachments"].([]any)
+	if len(atts2) != 1 {
+		t.Fatalf("expected one attachment (case2), got %d", len(atts2))
+	}
+	a02, _ := atts2[0].(map[string]any)
+	if a02["duration_in_seconds"] != float64(5) {
+		t.Errorf("expected duration_in_seconds==5, got %v", a02["duration_in_seconds"])
 	}
 }
 

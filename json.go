@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -22,7 +21,7 @@ type JSONAuthor struct {
 }
 
 // JSONAttachment represents a related resource. (Kept for future expansion)
-type JSONAttachment struct {
+type jsonAttachment struct {
 	Url      string        `json:"url,omitempty"`
 	MIMEType string        `json:"mime_type,omitempty"`
 	Title    string        `json:"title,omitempty"`
@@ -31,8 +30,8 @@ type JSONAttachment struct {
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (a *JSONAttachment) MarshalJSON() ([]byte, error) {
-	type EmbeddedJSONAttachment JSONAttachment
+func (a *jsonAttachment) MarshalJSON() ([]byte, error) {
+	type EmbeddedJSONAttachment jsonAttachment
 	type out struct {
 		Duration float64 `json:"duration_in_seconds,omitempty"`
 		*EmbeddedJSONAttachment
@@ -58,7 +57,7 @@ type JSONItem struct {
 	ModifiedDate  *time.Time       `json:"date_modified,omitempty"`
 	PublishedDate *time.Time       `json:"date_published,omitempty"`
 	Image         string           `json:"image,omitempty"`
-	Attachments   []JSONAttachment `json:"attachments,omitempty"`
+	Attachments   []jsonAttachment `json:"attachments,omitempty"`
 
 	ContentText string          `json:"content_text,omitempty"`
 	BannerImage string          `json:"banner_image,omitempty"`
@@ -259,18 +258,8 @@ func (ji *JSONItem) MarshalJSON() ([]byte, error) {
 func newJSONItem(i *Item) *JSONItem {
 	// Ensure id is non-empty per JSON Feed spec
 	id := i.ID
-	link := i.Link
 	if id == "" {
-		if link != nil && link.Href != "" && (!i.Created.IsZero() || !i.Updated.IsZero()) {
-			dateStr := anyTimeFormat("2006-01-02", i.Updated, i.Created)
-			host, path := link.Href, "/"
-			if u, err := url.Parse(link.Href); err == nil {
-				host, path = u.Host, u.Path
-			}
-			id = fmt.Sprintf("tag:%s,%s:%s", host, dateStr, path)
-		} else {
-			id = "urn:uuid:" + MustUUIDv4().String()
-		}
+		id = fallbackItemGuid(i)
 	}
 	item := &JSONItem{
 		Id:          id,
@@ -310,7 +299,7 @@ func newJSONItem(i *Item) *JSONItem {
 			} else if i.Enclosure.Length > 0 {
 				sz = int32(i.Enclosure.Length)
 			}
-			att := JSONAttachment{
+			att := jsonAttachment{
 				Url:      i.Enclosure.Url,
 				MIMEType: i.Enclosure.Type,
 				Size:     sz,
