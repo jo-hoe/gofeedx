@@ -456,16 +456,21 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
+	// Override fields using supported generic structs and existing builder capabilities
+	feed.Author = &gofeedx.Author{Name: "Override Author"}
+	feed.Categories = []*gofeedx.Category{
+		{Text: "Technology"},
+		{Text: "News"},
+	}
+	feed.ID = "custom-guid-123"
+
 	feed.ApplyExtensions(
-		gofeedx.WithPSPChannel(gofeedx.PSPChannelFields{
+		gofeedx.WithPSPChannel(gofeedx.PSPChannelExtension{
 			ItunesExplicit:  boolPtr(true),
 			ItunesType:      "serial",
 			ItunesComplete:  true,
-			ItunesAuthor:    "Override Author",
 			ItunesImageHref: "https://example.com/cover.png",
-			Categories:      []string{"Technology", "News"},
 			PodcastLocked:   boolPtr(true),
-			PodcastGuid:     "custom-guid-123",
 			PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
 			PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
 		}),
