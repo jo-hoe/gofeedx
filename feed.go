@@ -82,8 +82,6 @@ type Feed struct {
 	Categories []*Category // used by RSS/Atom/PSP
 }
 
-
-
 // anyTimeFormat returns the first non-zero time formatted as a string or "".
 func anyTimeFormat(format string, times ...time.Time) string {
 	for _, t := range times {

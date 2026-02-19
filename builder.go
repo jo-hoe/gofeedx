@@ -150,9 +150,9 @@ func (b *FeedBuilder) WithExtensions(nodes ...ExtensionNode) *FeedBuilder {
 	return b
 }
 
- // AddItem appends a built item to the feed.
- // If ib.Build() returns an error, it is ignored here and handled by profile validation in Build.
- func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
+// AddItem appends a built item to the feed.
+// If ib.Build() returns an error, it is ignored here and handled by profile validation in Build.
+func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
 	if ib == nil {
 		return b
 	}
