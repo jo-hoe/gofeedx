@@ -140,7 +140,15 @@ func (b *FeedBuilder) WithCategories(categories ...string) *FeedBuilder {
 
 // ApplyExtensions appends extension options at feed/channel scope.
 func (b *FeedBuilder) ApplyExtensions(opts ...ExtOption) *FeedBuilder {
-	b.feed.ApplyExtensions(opts...)
+	if len(opts) == 0 {
+		return b
+	}
+	for _, o := range opts {
+		if o == nil {
+			continue
+		}
+		b.feed.Extensions = append(b.feed.Extensions, o.feedNodes()...)
+	}
 	return b
 }
 
@@ -171,14 +179,13 @@ func (b *FeedBuilder) AddItemFunc(fn func(*ItemBuilder)) *FeedBuilder {
 
 // WithSort sets a stable sort for items; call before Build.
 func (b *FeedBuilder) WithSort(less func(a, b *Item) bool) *FeedBuilder {
-	// We'll sort in Build after collecting items
 	if less == nil {
 		return b
 	}
-	// Use a temporary feed to reuse Sort implementation; will be re-applied in Build
-	tmp := &Feed{Items: b.items}
-	tmp.Sort(less)
-	b.items = tmp.Items
+	// Sort the builder's items directly using a stable sort
+	sort.SliceStable(b.items, func(i, j int) bool {
+		return less(b.items[i], b.items[j])
+	})
 	return b
 }
 
@@ -432,7 +439,15 @@ func (b *ItemBuilder) WithDurationSeconds(sec int) *ItemBuilder {
 
 // ApplyExtensions appends extension options at item/entry scope.
 func (b *ItemBuilder) ApplyExtensions(opts ...ExtOption) *ItemBuilder {
-	b.item.ApplyExtensions(opts...)
+	if len(opts) == 0 {
+		return b
+	}
+	for _, o := range opts {
+		if o == nil {
+			continue
+		}
+		b.item.Extensions = append(b.item.Extensions, o.itemNodes()...)
+	}
 	return b
 }
 

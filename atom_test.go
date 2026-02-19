@@ -65,7 +65,7 @@ func newAtomBaseItem() *gofeedx.Item {
 
 func TestAtomFeedRequiredElements(t *testing.T) {
 	f := newAtomBaseFeed()
-	f.Add(newAtomBaseItem())
+	f.Items = append(f.Items, newAtomBaseItem())
 
 	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestAtomEntryContentAndSummaryBehavior(t *testing.T) {
 	f1 := newAtomBaseFeed()
 	item1 := newAtomBaseItem()
 	item1.Description = "<p>Summary</p>"
-	f1.Add(item1)
+	f1.Items = append(f1.Items, item1)
 	xml1, err := gofeedx.ToAtom(f1)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
@@ -146,7 +146,7 @@ func TestAtomEntryContentAndSummaryBehavior(t *testing.T) {
 	f2 := newAtomBaseFeed()
 	item2 := newAtomBaseItem()
 	item2.Content = "<p>Body</p>"
-	f2.Add(item2)
+	f2.Items = append(f2.Items, item2)
 	xml2, err := gofeedx.ToAtom(f2)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
@@ -166,7 +166,7 @@ func TestAtomAutoIdGenerationTagURI(t *testing.T) {
 	f := newAtomBaseFeed()
 	item := newAtomBaseItem()
 	item.ID = ""
-	f.Add(item)
+	f.Items = append(f.Items, item)
 	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
@@ -189,7 +189,7 @@ func TestAtomAuthorRequirementPerSpec(t *testing.T) {
 	// no feed.Author
 	item := newAtomBaseItem()
 	// no item.Author
-	f.Add(item)
+	f.Items = append(f.Items, item)
 	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
@@ -214,7 +214,7 @@ func TestAtomAuthorRequirementPerSpec(t *testing.T) {
 func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 	feed := newAtomBaseFeed()
 	item := newAtomBaseItem()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	// Configure some generic fields expected not to leak PSP namespaces
 	feed.FeedURL = "https://example.com/podcast.rss"
@@ -245,7 +245,7 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 func TestAtomExtensionNodesAllowed(t *testing.T) {
 	feed := newAtomBaseFeed()
 	item := newAtomBaseItem()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	// Add PSP-like elements via ExtensionNode (allowed exception)
 	feed.Extensions = []gofeedx.ExtensionNode{
@@ -275,7 +275,7 @@ func TestValidateAtom_Success(t *testing.T) {
 		Created: now, // satisfies updated timestamp requirement via Created
 		Author:  &gofeedx.Author{Name: "Feed Author"},
 	}
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title:   "Entry 1",
 		Created: now.Add(-time.Hour), // satisfies entry updated timestamp via Created
 	})
@@ -292,7 +292,7 @@ func TestValidateAtom_MissingUpdated(t *testing.T) {
 		// Updated and Created are zero -> invalid
 		Author: &gofeedx.Author{Name: "Feed Author"},
 	}
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title:   "Entry 1",
 		Created: time.Now().UTC(),
 	})
@@ -310,7 +310,7 @@ func TestValidateAtom_MissingId(t *testing.T) {
 		// Missing ID and Link -> invalid
 		Author: &gofeedx.Author{Name: "Feed Author"},
 	}
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title:   "Entry 1",
 		Created: now,
 	})
@@ -329,7 +329,7 @@ func TestValidateAtom_AuthorRequirement(t *testing.T) {
 		// No feed.Author
 	}
 	// Entry without author
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title:   "Entry 1",
 		Created: now,
 	})

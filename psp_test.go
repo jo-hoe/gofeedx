@@ -108,7 +108,7 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 
 	feed := newBaseFeed()
 	item := newBaseEpisode()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	// Configure channel fields available in generic structs
 	feed.FeedURL = "https://example.com/podcast.rss"
@@ -204,7 +204,7 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
 	item.Content = "<p>Welcome</p>"
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -234,7 +234,7 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 		Language:    "en-us",
 		Created:     time.Now(),
 	}
-	feed.Add(&gofeedx.Item{
+	feed.Items = append(feed.Items, &gofeedx.Item{
 		Title:   "Episode X",
 		ID:      "x",
 		Created: time.Now(),
@@ -274,7 +274,7 @@ func TestPSPValidateFailsMissingRequiredChannelElements(t *testing.T) {
 		Language:    "en-us",
 		Created:     time.Now(),
 	}
-	feed.Add(newBaseEpisode())
+	feed.Items = append(feed.Items, newBaseEpisode())
 
 	// Intentionally omit categories and atom self (FeedURL)
 	if err := gofeedx.ValidatePSP(feed); err == nil {
@@ -294,7 +294,7 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 			Url: "https://cdn.example.com/audio/bad.mp3",
 		},
 	}
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -308,7 +308,7 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 // Test that <atom:link rel="self" type="application/rss+xml"> is rendered correctly.
 func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed := newBaseFeed()
-	feed.Add(newBaseEpisode())
+	feed.Items = append(feed.Items, newBaseEpisode())
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -333,7 +333,7 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 // Test that itunes:category is emitted for top-level categories.
 func TestPSPItunesCategoryTopLevelOnly(t *testing.T) {
 	feed := newBaseFeed()
-	feed.Add(newBaseEpisode())
+	feed.Items = append(feed.Items, newBaseEpisode())
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -359,7 +359,7 @@ func TestPSPItunesCategoryTopLevelOnly(t *testing.T) {
 func TestPSPDoesNotEmitExplicitOrLocked(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -392,7 +392,7 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 		Language:    "en-us",
 		Created:     time.Now(),
 	}
-	feed.Add(newBaseEpisode())
+	feed.Items = append(feed.Items, newBaseEpisode())
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -407,7 +407,7 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 func TestPSPExtensionsAllowed(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -445,7 +445,7 @@ func intPtr(i int) *int    { return &i }
 func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -464,16 +464,15 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 	}
 	feed.ID = "custom-guid-123"
 
-	feed.ApplyExtensions(
-		gofeedx.WithPSPChannel(gofeedx.PSPChannelExtension{
-			ItunesExplicit:  boolPtr(true),
-			ItunesType:      "serial",
-			ItunesComplete:  true,
-			ItunesImageHref: "https://example.com/cover.png",
-			PodcastLocked:   boolPtr(true),
-			PodcastTXT:      &gofeedx.PodcastTXT{Value: "ownership-token", Purpose: "verify"},
-			PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
-		}),
+	// Manually append equivalent PSP channel extension nodes (builder-only assumption)
+	feed.Extensions = append(feed.Extensions,
+		gofeedx.ExtensionNode{Name: "itunes:explicit", Text: "true"},
+		gofeedx.ExtensionNode{Name: "itunes:type", Text: "serial"},
+		gofeedx.ExtensionNode{Name: "itunes:complete", Text: "yes"},
+		gofeedx.ExtensionNode{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.png"}},
+		gofeedx.ExtensionNode{Name: "podcast:locked", Text: "yes"},
+		gofeedx.ExtensionNode{Name: "podcast:txt", Text: "ownership-token", Attrs: map[string]string{"purpose": "verify"}},
+		gofeedx.ExtensionNode{Name: "podcast:funding", Text: "Support Us", Attrs: map[string]string{"url": "https://example.com/support"}},
 	)
 	xmlStr, err := gofeedx.ToPSP(feed)
 	if err != nil {
@@ -518,7 +517,7 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 	feed := newBaseFeed()
 	item := newBaseEpisode()
 	item.ID = "ep-1"
-	feed.Add(item)
+	feed.Items = append(feed.Items, item)
 
 	feed.FeedURL = "https://example.com/podcast.rss"
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
@@ -528,16 +527,15 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
-	item.ApplyExtensions(
-		gofeedx.WithPSPItem(gofeedx.PSPItemFields{
-			ItunesImageHref:   "https://example.com/ep1.jpg",
-			ItunesExplicit:    boolPtr(false),
-			ItunesEpisode:     intPtr(1),
-			ItunesSeason:      intPtr(1),
-			ItunesEpisodeType: "full",
-			ItunesBlock:       true,
-			Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
-		}),
+	// Manually append equivalent PSP item extension nodes (builder-only assumption)
+	item.Extensions = append(item.Extensions,
+		gofeedx.ExtensionNode{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/ep1.jpg"}},
+		gofeedx.ExtensionNode{Name: "itunes:explicit", Text: "false"},
+		gofeedx.ExtensionNode{Name: "itunes:episode", Text: "1"},
+		gofeedx.ExtensionNode{Name: "itunes:season", Text: "1"},
+		gofeedx.ExtensionNode{Name: "itunes:episodeType", Text: "full"},
+		gofeedx.ExtensionNode{Name: "itunes:block", Text: "yes"},
+		gofeedx.ExtensionNode{Name: "podcast:transcript", Attrs: map[string]string{"url": "https://example.com/ep1.vtt", "type": "text/vtt"}},
 	)
 	xmlStr, err := gofeedx.ToPSP(feed)
 	if err != nil {

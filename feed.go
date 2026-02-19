@@ -1,7 +1,6 @@
 package gofeedx
 
 import (
-	"sort"
 	"time"
 )
 
@@ -83,18 +82,7 @@ type Feed struct {
 	Categories []*Category // used by RSS/Atom/PSP
 }
 
-// Add appends a new item to the feed.
-func (f *Feed) Add(item *Item) {
-	f.Items = append(f.Items, item)
-}
 
-// Sort sorts the Items in the feed with the given less function.
-func (f *Feed) Sort(less func(a, b *Item) bool) {
-	lessFunc := func(i, j int) bool {
-		return less(f.Items[i], f.Items[j])
-	}
-	sort.SliceStable(f.Items, lessFunc)
-}
 
 // anyTimeFormat returns the first non-zero time formatted as a string or "".
 func anyTimeFormat(format string, times ...time.Time) string {

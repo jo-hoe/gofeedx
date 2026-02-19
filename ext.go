@@ -24,28 +24,4 @@ func newFeedNodes(nodes ...ExtensionNode) ExtOption { return extNodesOption{feed
 // newItemNodes constructs an ExtOption that injects nodes at item/entry scope.
 func newItemNodes(nodes ...ExtensionNode) ExtOption { return extNodesOption{item: nodes} }
 
-// ApplyExtensions applies unified extension options at feed/channel scope.
-func (f *Feed) ApplyExtensions(opts ...ExtOption) {
-	if f == nil || len(opts) == 0 {
-		return
-	}
-	for _, o := range opts {
-		if o == nil {
-			continue
-		}
-		f.Extensions = append(f.Extensions, o.feedNodes()...)
-	}
-}
 
-// ApplyExtensions applies unified extension options at item/entry scope.
-func (it *Item) ApplyExtensions(opts ...ExtOption) {
-	if it == nil || len(opts) == 0 {
-		return
-	}
-	for _, o := range opts {
-		if o == nil {
-			continue
-		}
-		it.Extensions = append(it.Extensions, o.itemNodes()...)
-	}
-}

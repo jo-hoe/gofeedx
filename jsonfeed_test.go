@@ -79,7 +79,7 @@ func newJSONBaseItem() *gofeedx.Item {
 
 func TestJSONFeedRequiredFields(t *testing.T) {
 	f := newJSONBaseFeed()
-	f.Add(newJSONBaseItem())
+	f.Items = append(f.Items, newJSONBaseItem())
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -103,7 +103,7 @@ func TestJSONFeedRequiredFields(t *testing.T) {
 func TestJSONFeedItemsAndIds(t *testing.T) {
 	f := newJSONBaseFeed()
 	item := newJSONBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -125,7 +125,7 @@ func TestJSONFeedItemsAndIds(t *testing.T) {
 func TestJSONFeedDatesRFC3339(t *testing.T) {
 	f := newJSONBaseFeed()
 	item := newJSONBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -152,7 +152,7 @@ func TestJSONFeedDatesRFC3339(t *testing.T) {
 func TestJSONFeedAuthorsV11(t *testing.T) {
 	f := newJSONBaseFeed()
 	item := newJSONBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -182,7 +182,7 @@ func TestJSONFeedContentHTMLAndImageMapping(t *testing.T) {
 		Type:   "image/png",
 		Length: 100,
 	}
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -211,7 +211,7 @@ func TestJSONFeedExtensionsFlattened(t *testing.T) {
 	item.Extensions = []gofeedx.ExtensionNode{
 		{Name: "x-item", Text: "ival"},
 	}
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -245,7 +245,7 @@ func TestJSONFeedItemIdMustBeNonEmptyPerSpec(t *testing.T) {
 	f := newJSONBaseFeed()
 	item := newJSONBaseItem()
 	item.ID = "" // non-conformant per spec
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	js, err := gofeedx.ToJSON(f)
 	if err != nil {
@@ -263,7 +263,7 @@ func TestJSONFeedItemIdMustBeNonEmptyPerSpec(t *testing.T) {
 func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 	f := newJSONBaseFeed()
 	item := newJSONBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	// Configure some generic fields; ensure PSP-only fields do not leak into JSON
 	f.FeedURL = "https://example.com/podcast.rss"
@@ -306,7 +306,7 @@ func TestValidateJSON_Success(t *testing.T) {
 	f := &gofeedx.Feed{
 		Title: "JSON Title",
 	}
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		ID:    "item-1",
 		Title: "First",
 	})
@@ -317,7 +317,7 @@ func TestValidateJSON_Success(t *testing.T) {
 
 func TestValidateJSON_MissingTitle(t *testing.T) {
 	f := &gofeedx.Feed{}
-	f.Add(&gofeedx.Item{ID: "x"})
+	f.Items = append(f.Items, &gofeedx.Item{ID: "x"})
 	err := gofeedx.ValidateJSON(f)
 	if err == nil || !strings.Contains(err.Error(), "feed title required") {
 		t.Fatalf("ValidateJSON() expected missing title error, got: %v", err)
@@ -339,7 +339,7 @@ func TestValidateJSON_ItemIdRequired(t *testing.T) {
 		Title: "JSON Title",
 	}
 	// Invalid: empty item ID per spec
-	f.Add(&gofeedx.Item{Title: "x"})
+	f.Items = append(f.Items, &gofeedx.Item{Title: "x"})
 	err := gofeedx.ValidateJSON(f)
 	if err == nil || !strings.Contains(err.Error(), "item[0] id required") {
 		t.Fatalf("ValidateJSON() expected item id required error, got: %v", err)

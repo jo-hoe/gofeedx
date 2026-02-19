@@ -70,7 +70,7 @@ func newRSSBaseItem() *gofeedx.Item {
 
 func TestRSSChannelRequiredElementsPresent(t *testing.T) {
 	f := newRSSBaseFeed()
-	f.Add(newRSSBaseItem())
+	f.Items = append(f.Items, newRSSBaseItem())
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestRSSContentNamespaceWhenContentEncoded(t *testing.T) {
 	f := newRSSBaseFeed()
 	item := newRSSBaseItem()
 	item.Content = "<p>HTML Content</p>"
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -134,7 +134,7 @@ func TestRSSEnclosureAttributesRequired(t *testing.T) {
 		Type:   "audio/mpeg",
 		Length: 12345,
 	}
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestRSSItemAuthorUsesEmailPerSpec(t *testing.T) {
 	f := newRSSBaseFeed()
 	item := newRSSBaseItem()
 	item.Author = &gofeedx.Author{Name: "Alice", Email: "alice@example.org"}
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -187,7 +187,7 @@ func TestRSSItemGuidAndIsPermaLink(t *testing.T) {
 	item := newRSSBaseItem()
 	item.ID = "abc-123"
 	item.IsPermaLink = "false"
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -215,7 +215,7 @@ func TestRSSItemTitleOrDescriptionPresent(t *testing.T) {
 	f := newRSSBaseFeed()
 	item := newRSSBaseItem()
 	item.Description = ""
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
@@ -229,7 +229,7 @@ func TestRSSItemTitleOrDescriptionPresent(t *testing.T) {
 func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	f := newRSSBaseFeed()
 	item := newRSSBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	// Configure some generic fields; ensure PSP-only fields do not leak into plain RSS
 	f.FeedURL = "https://example.com/podcast.rss" // PSP adds atom:link rel=self - should not appear in plain RSS writer
@@ -268,7 +268,7 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 func TestRSSExtensionNodesAllowed(t *testing.T) {
 	f := newRSSBaseFeed()
 	item := newRSSBaseItem()
-	f.Add(item)
+	f.Items = append(f.Items, item)
 
 	// Add PSP-like elements via ExtensionNode (allowed exception)
 	f.Extensions = []gofeedx.ExtensionNode{
@@ -297,7 +297,7 @@ func TestValidateRSS_Success(t *testing.T) {
 		Link:        &gofeedx.Link{Href: "https://example.org/"},
 		Description: "Desc",
 	}
-	f.Add(&gofeedx.Item{Title: "Item 1"})
+	f.Items = append(f.Items, &gofeedx.Item{Title: "Item 1"})
 
 	if err := gofeedx.ValidateRSS(f); err != nil {
 		t.Fatalf("ValidateRSS() unexpected error: %v", err)
@@ -311,7 +311,7 @@ func TestValidateRSS_ItemNeedsTitleOrDescription(t *testing.T) {
 		Description: "Desc",
 	}
 	// Invalid: item without title and description
-	f.Add(&gofeedx.Item{})
+	f.Items = append(f.Items, &gofeedx.Item{})
 	err := gofeedx.ValidateRSS(f)
 	if err == nil || !strings.Contains(err.Error(), "must include a title or a description") {
 		t.Fatalf("ValidateRSS() expected title/description error, got: %v", err)
@@ -325,7 +325,7 @@ func TestValidateRSS_EnclosureValidation(t *testing.T) {
 		Description: "Desc",
 	}
 	// Invalid enclosure: length <= 0
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title: "Item",
 		Enclosure: &gofeedx.Enclosure{
 			Url:    "https://cdn.example.org/x.mp3",
@@ -346,7 +346,7 @@ func TestValidateRSS_AuthorEmailRequired(t *testing.T) {
 		Description: "Desc",
 	}
 	// Invalid RSS author: missing email
-	f.Add(&gofeedx.Item{
+	f.Items = append(f.Items, &gofeedx.Item{
 		Title:  "Item",
 		Author: &gofeedx.Author{Name: "Alice", Email: ""},
 	})
