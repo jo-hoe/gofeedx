@@ -119,10 +119,10 @@ func buildValidPSPFeed(t *testing.T) (string, error) {
 	// Configure item fields available in generic structs
 	item.DurationSeconds = 1801
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		return "", err
 	}
-	return feed.ToPSPRSSString()
+	return gofeedx.ToPSP(feed)
 }
 
 // Test that a configured feed passes validation and includes expected namespaces
@@ -211,10 +211,10 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 	item.DurationSeconds = 10
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("expected valid feed with HTML content, got error: %v", err)
 	}
-	xml, err := feed.ToPSPRSSString()
+	xml, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -249,10 +249,10 @@ func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/art.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("Validate failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSSString()
+	xml, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestPSPValidateFailsMissingRequiredChannelElements(t *testing.T) {
 	feed.Add(newBaseEpisode())
 
 	// Intentionally omit categories and atom self (FeedURL)
-	if err := feed.ValidatePSP(); err == nil {
+	if err := gofeedx.ValidatePSP(feed); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when required channel elements are missing")
 	}
 }
@@ -300,7 +300,7 @@ func TestPSPValidateFailsMissingEnclosureAttributes(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	if err := feed.ValidatePSP(); err == nil {
+	if err := gofeedx.ValidatePSP(feed); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when enclosure attributes are missing")
 	}
 }
@@ -314,10 +314,10 @@ func TestPSPAtomSelfLinkAttributes(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSSString()
+	xml, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -341,10 +341,10 @@ func TestPSPItunesCategoryTopLevelOnly(t *testing.T) {
 		Text: "Technology",
 	})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSSString()
+	xml, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -365,10 +365,10 @@ func TestPSPDoesNotEmitExplicitOrLocked(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xml, err := feed.ToPSPRSSString()
+	xml, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
@@ -398,7 +398,7 @@ func TestPSPChannelDescriptionLengthLimit(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	if err := feed.ValidatePSP(); err == nil {
+	if err := gofeedx.ValidatePSP(feed); err == nil {
 		t.Fatalf("expected ValidatePSP to fail when channel description > 4000 bytes")
 	}
 }
@@ -421,15 +421,15 @@ func TestPSPExtensionsAllowed(t *testing.T) {
 		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
 	}
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
-	xmlStr, err := feed.ToPSPRSSString()
+	xmlStr, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSS failed: %v", err)
 	}
 
-	if !strings.Contains(xmlStr, "<podcast:funding") || !strings.Contains(xmlStr, `url="https://example.com/support"`) {
+	if !strings.Contains(xmlStr, "<podcast:funding") || !strings.Contains(xmlStr, `url="https://example.com/support"`) || !strings.Contains(xmlStr, ">Support Us<") {
 		t.Errorf("expected podcast:funding extension in PSP output")
 	}
 	if !strings.Contains(xmlStr, "<itunes:image") || !strings.Contains(xmlStr, `href="https://example.com/cover.jpg"`) {
@@ -452,7 +452,7 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 	feed.Author = &gofeedx.Author{Name: "My Podcast Team"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Original"})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
@@ -475,7 +475,7 @@ func TestPSPBuilderChannelExtrasApplied(t *testing.T) {
 			PodcastFunding:  &gofeedx.PodcastFunding{Url: "https://example.com/support", Text: "Support Us"},
 		}),
 	)
-	xmlStr, err := feed.ToPSPRSSString()
+	xmlStr, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
 	}
@@ -524,7 +524,7 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
 
-	if err := feed.ValidatePSP(); err != nil {
+	if err := gofeedx.ValidatePSP(feed); err != nil {
 		t.Fatalf("ValidatePSP failed: %v", err)
 	}
 
@@ -539,7 +539,7 @@ func TestPSPBuilderItemExtrasApplied(t *testing.T) {
 			Transcripts:       []gofeedx.PSPTranscript{{Url: "https://example.com/ep1.vtt", Type: "text/vtt"}},
 		}),
 	)
-	xmlStr, err := feed.ToPSPRSSString()
+	xmlStr, err := gofeedx.ToPSP(feed)
 	if err != nil {
 		t.Fatalf("ToPSPRSSStringOpts failed: %v", err)
 	}

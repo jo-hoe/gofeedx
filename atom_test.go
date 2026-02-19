@@ -67,7 +67,7 @@ func TestAtomFeedRequiredElements(t *testing.T) {
 	f := newAtomBaseFeed()
 	f.Add(newAtomBaseItem())
 
-	xmlStr, err := f.ToAtomString()
+	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -126,7 +126,7 @@ func TestAtomEntryContentAndSummaryBehavior(t *testing.T) {
 	item1 := newAtomBaseItem()
 	item1.Description = "<p>Summary</p>"
 	f1.Add(item1)
-	xml1, err := f1.ToAtomString()
+	xml1, err := gofeedx.ToAtom(f1)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestAtomEntryContentAndSummaryBehavior(t *testing.T) {
 	item2 := newAtomBaseItem()
 	item2.Content = "<p>Body</p>"
 	f2.Add(item2)
-	xml2, err := f2.ToAtomString()
+	xml2, err := gofeedx.ToAtom(f2)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestAtomAutoIdGenerationTagURI(t *testing.T) {
 	item := newAtomBaseItem()
 	item.ID = ""
 	f.Add(item)
-	xmlStr, err := f.ToAtomString()
+	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -190,7 +190,7 @@ func TestAtomAuthorRequirementPerSpec(t *testing.T) {
 	item := newAtomBaseItem()
 	// no item.Author
 	f.Add(item)
-	xmlStr, err := f.ToAtomString()
+	xmlStr, err := gofeedx.ToAtom(f)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -221,7 +221,7 @@ func TestAtomDoesNotIncludePSPFields(t *testing.T) {
 	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "News"})
 
 	// Serialize as Atom
-	xmlStr, err := feed.ToAtomString()
+	xmlStr, err := gofeedx.ToAtom(feed)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -255,7 +255,7 @@ func TestAtomExtensionNodesAllowed(t *testing.T) {
 		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
 	}
 
-	atom, err := feed.ToAtomString()
+	atom, err := gofeedx.ToAtom(feed)
 	if err != nil {
 		t.Fatalf("ToAtom failed: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestValidateAtom_Success(t *testing.T) {
 		Created: now.Add(-time.Hour), // satisfies entry updated timestamp via Created
 	})
 
-	if err := f.ValidateAtom(); err != nil {
+	if err := gofeedx.ValidateAtom(f); err != nil {
 		t.Fatalf("ValidateAtom() unexpected error: %v", err)
 	}
 }
@@ -296,7 +296,7 @@ func TestValidateAtom_MissingUpdated(t *testing.T) {
 		Title:   "Entry 1",
 		Created: time.Now().UTC(),
 	})
-	err := f.ValidateAtom()
+	err := gofeedx.ValidateAtom(f)
 	if err == nil || !strings.Contains(err.Error(), "updated timestamp required") {
 		t.Fatalf("ValidateAtom() expected missing updated timestamp error, got: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestValidateAtom_MissingId(t *testing.T) {
 		Title:   "Entry 1",
 		Created: now,
 	})
-	err := f.ValidateAtom()
+	err := gofeedx.ValidateAtom(f)
 	if err == nil || !strings.Contains(err.Error(), "feed id required") {
 		t.Fatalf("ValidateAtom() expected feed id required error, got: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestValidateAtom_AuthorRequirement(t *testing.T) {
 		Title:   "Entry 1",
 		Created: now,
 	})
-	err := f.ValidateAtom()
+	err := gofeedx.ValidateAtom(f)
 	if err == nil || !strings.Contains(err.Error(), "must contain an author") {
 		t.Fatalf("ValidateAtom() expected author requirement error, got: %v", err)
 	}

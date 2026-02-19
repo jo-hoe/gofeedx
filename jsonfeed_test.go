@@ -81,7 +81,7 @@ func TestJSONFeedRequiredFields(t *testing.T) {
 	f := newJSONBaseFeed()
 	f.Add(newJSONBaseItem())
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestJSONFeedItemsAndIds(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestJSONFeedDatesRFC3339(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestJSONFeedAuthorsV11(t *testing.T) {
 	item := newJSONBaseItem()
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -184,7 +184,7 @@ func TestJSONFeedContentHTMLAndImageMapping(t *testing.T) {
 	}
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestJSONFeedExtensionsFlattened(t *testing.T) {
 	}
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -247,7 +247,7 @@ func TestJSONFeedItemIdMustBeNonEmptyPerSpec(t *testing.T) {
 	item.ID = "" // non-conformant per spec
 	f.Add(item)
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -270,7 +270,7 @@ func TestJSONFeedDoesNotIncludePSPFields(t *testing.T) {
 	f.Categories = append(f.Categories, &gofeedx.Category{Text: "Technology"})
 	item.DurationSeconds = 99
 
-	js, err := f.ToJSONString()
+	js, err := gofeedx.ToJSON(f)
 	if err != nil {
 		t.Fatalf("ToJSON failed: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestValidateJSON_Success(t *testing.T) {
 		ID:    "item-1",
 		Title: "First",
 	})
-	if err := f.ValidateJSON(); err != nil {
+	if err := gofeedx.ValidateJSON(f); err != nil {
 		t.Fatalf("ValidateJSON() unexpected error: %v", err)
 	}
 }
@@ -318,7 +318,7 @@ func TestValidateJSON_Success(t *testing.T) {
 func TestValidateJSON_MissingTitle(t *testing.T) {
 	f := &gofeedx.Feed{}
 	f.Add(&gofeedx.Item{ID: "x"})
-	err := f.ValidateJSON()
+	err := gofeedx.ValidateJSON(f)
 	if err == nil || !strings.Contains(err.Error(), "feed title required") {
 		t.Fatalf("ValidateJSON() expected missing title error, got: %v", err)
 	}
@@ -328,7 +328,7 @@ func TestValidateJSON_NoItems(t *testing.T) {
 	f := &gofeedx.Feed{
 		Title: "JSON Title",
 	}
-	err := f.ValidateJSON()
+	err := gofeedx.ValidateJSON(f)
 	if err == nil || !strings.Contains(err.Error(), "at least one item required") {
 		t.Fatalf("ValidateJSON() expected at least one item error, got: %v", err)
 	}
@@ -340,7 +340,7 @@ func TestValidateJSON_ItemIdRequired(t *testing.T) {
 	}
 	// Invalid: empty item ID per spec
 	f.Add(&gofeedx.Item{Title: "x"})
-	err := f.ValidateJSON()
+	err := gofeedx.ValidateJSON(f)
 	if err == nil || !strings.Contains(err.Error(), "item[0] id required") {
 		t.Fatalf("ValidateJSON() expected item id required error, got: %v", err)
 	}

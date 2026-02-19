@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -281,32 +280,11 @@ func newJSONItem(i *Item) *JSONItem {
 	return item
 }
 
-/*
-ToJSONString creates a JSON Feed representation of this feed as a string.
-Use ToJSONFeed() if you need the structured JSONFeed value for further processing.
-*/
-func (f *Feed) ToJSONString() (string, error) {
-	j := &JSON{f}
-	return j.ToJSONString()
-}
 
-/*
-ToJSONFeed returns the JSONFeed struct for this feed.
-*/
-func (f *Feed) ToJSONFeed() (*JSONFeed, error) {
-	j := &JSON{f}
-	return j.JSONFeed(), nil
-}
 
-// WriteJSON writes a JSON representation of this feed to the writer.
-func (f *Feed) WriteJSON(w io.Writer) error {
-	j := &JSON{f}
-	feed := j.JSONFeed()
-	return WriteJSON(feed, w)
-}
 
 // ValidateJSON enforces JSON Feed 1.1 essentials on the generic Feed.
-func (f *Feed) ValidateJSON() error {
+func ValidateJSON(f *Feed) error {
 	// Top-level required: title (version is set by the writer), items must be present
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("json: feed title required")

@@ -72,7 +72,7 @@ func TestRSSChannelRequiredElementsPresent(t *testing.T) {
 	f := newRSSBaseFeed()
 	f.Add(newRSSBaseItem())
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestRSSContentNamespaceWhenContentEncoded(t *testing.T) {
 	item.Content = "<p>HTML Content</p>"
 	f.Add(item)
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestRSSEnclosureAttributesRequired(t *testing.T) {
 	}
 	f.Add(item)
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -167,7 +167,7 @@ func TestRSSItemAuthorUsesEmailPerSpec(t *testing.T) {
 	item.Author = &gofeedx.Author{Name: "Alice", Email: "alice@example.org"}
 	f.Add(item)
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -189,7 +189,7 @@ func TestRSSItemGuidAndIsPermaLink(t *testing.T) {
 	item.IsPermaLink = "false"
 	f.Add(item)
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestRSSItemTitleOrDescriptionPresent(t *testing.T) {
 	item.Description = ""
 	f.Add(item)
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -237,7 +237,7 @@ func TestRSSDoesNotIncludePSPFields(t *testing.T) {
 	item.DurationSeconds = 42
 	f.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestRSSExtensionNodesAllowed(t *testing.T) {
 		{Name: "itunes:image", Attrs: map[string]string{"href": "https://example.com/cover.jpg"}},
 	}
 
-	xmlStr, err := f.ToRSSString()
+	xmlStr, err := gofeedx.ToRSS(f)
 	if err != nil {
 		t.Fatalf("ToRSS failed: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestValidateRSS_Success(t *testing.T) {
 	}
 	f.Add(&gofeedx.Item{Title: "Item 1"})
 
-	if err := f.ValidateRSS(); err != nil {
+	if err := gofeedx.ValidateRSS(f); err != nil {
 		t.Fatalf("ValidateRSS() unexpected error: %v", err)
 	}
 }
@@ -312,7 +312,7 @@ func TestValidateRSS_ItemNeedsTitleOrDescription(t *testing.T) {
 	}
 	// Invalid: item without title and description
 	f.Add(&gofeedx.Item{})
-	err := f.ValidateRSS()
+	err := gofeedx.ValidateRSS(f)
 	if err == nil || !strings.Contains(err.Error(), "must include a title or a description") {
 		t.Fatalf("ValidateRSS() expected title/description error, got: %v", err)
 	}
@@ -333,7 +333,7 @@ func TestValidateRSS_EnclosureValidation(t *testing.T) {
 			Length: 0,
 		},
 	})
-	err := f.ValidateRSS()
+	err := gofeedx.ValidateRSS(f)
 	if err == nil || !strings.Contains(err.Error(), "enclosure url/type/length required") {
 		t.Fatalf("ValidateRSS() expected enclosure error, got: %v", err)
 	}
@@ -350,7 +350,7 @@ func TestValidateRSS_AuthorEmailRequired(t *testing.T) {
 		Title:  "Item",
 		Author: &gofeedx.Author{Name: "Alice", Email: ""},
 	})
-	err := f.ValidateRSS()
+	err := gofeedx.ValidateRSS(f)
 	if err == nil || !strings.Contains(err.Error(), "author must be an email") {
 		t.Fatalf("ValidateRSS() expected author email error, got: %v", err)
 	}

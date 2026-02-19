@@ -11,7 +11,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -337,34 +336,18 @@ type PSP struct {
 	*Feed
 }
 
-/*
-ToPSPRSSString creates a PSP-1 RSS representation of this feed as a string.
-Use ToPSPRSS() if you need the structured root object for further processing.
-*/
-func (f *Feed) ToPSPRSSString() (string, error) {
-	return ToXML(&PSP{f})
-}
 
-/*
-ToPSPRSSFeed returns the PSP-1 RSS root struct for this feed.
-*/
-func (f *Feed) ToPSPRSSFeed() (*PSPRSSRoot, error) {
-	p := &PSP{f}
-	return p.wrapRoot(p.buildChannel()), nil
-}
 
-// WritePSPRSS writes a PSP-1 RSS representation of this feed to the writer.
-func (f *Feed) WritePSPRSS(w io.Writer) error {
-	return WriteXML(&PSP{f}, w)
-}
 
 // FeedXml returns an XML-Ready object for a PSP wrapper.
 func (p *PSP) FeedXml() interface{} {
 	return p.wrapRoot(p.buildChannel())
 }
 
-// ValidatePSP enforces PSP-1 required elements at channel and item levels using generic Feed/Item fields.
-func (f *Feed) ValidatePSP() error {
+/*
+ValidatePSP enforces PSP-1 required elements at channel and item levels using generic Feed/Item fields.
+*/
+func ValidatePSP(f *Feed) error {
 	// Channel-level required (generic only)
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("psp: channel title required")

@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -96,26 +95,8 @@ type Atom struct {
 	*Feed
 }
 
-/*
-ToAtomString creates an Atom 1.0 representation of this feed as a string.
-Use ToAtomFeed() if you need the structured root object for further processing.
-*/
-func (f *Feed) ToAtomString() (string, error) {
-	return ToXML(&Atom{f})
-}
 
-/*
-ToAtomFeed returns the Atom 1.0 root struct for this feed.
-*/
-func (f *Feed) ToAtomFeed() (*AtomFeed, error) {
-	a := &Atom{f}
-	return a.AtomFeed(), nil
-}
 
-// WriteAtom writes an Atom 1.0 representation of this feed to the writer.
-func (f *Feed) WriteAtom(w io.Writer) error {
-	return WriteXML(&Atom{f}, w)
-}
 
 // FeedXml returns an XML-Ready object for an Atom object
 func (a *Atom) FeedXml() interface{} {
@@ -273,7 +254,7 @@ func firstNonEmpty(vals ...string) string {
 }
 
 // ValidateAtom enforces Atom 1.0 (RFC 4287) essentials on the generic Feed.
-func (f *Feed) ValidateAtom() error {
+func ValidateAtom(f *Feed) error {
 	// Feed-level required: title, updated (from Updated or Created), id (from ID or Link.Href)
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("atom: feed title required")

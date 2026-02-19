@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -101,30 +100,8 @@ type Rss struct {
 	*Feed
 }
 
-/*
-ToRSSString creates an RSS 2.0 representation of this feed as a string.
-Use ToRSSFeed() if you need the structured root object for further processing.
-*/
-func (f *Feed) ToRSSString() (string, error) {
-	return ToXML(&Rss{f})
-}
 
-/*
-ToRSSFeed returns the RSS 2.0 root struct for this feed.
-*/
-func (f *Feed) ToRSSFeed() (*RssFeedXml, error) {
-	r := &Rss{f}
-	rf := r.RssFeed()
-	root, _ := rf.FeedXml().(*RssFeedXml)
-	return root, nil
-}
 
-/*
-WriteRSS writes an RSS 2.0 representation of this feed to the writer.
-*/
-func (f *Feed) WriteRSS(w io.Writer) error {
-	return WriteXML(&Rss{f}, w)
-}
 
 // FeedXml returns an XML-Ready object for an Rss object.
 func (r *Rss) FeedXml() interface{} {
@@ -287,7 +264,7 @@ func newRssItem(i *Item) *RssItem {
 }
 
 // ValidateRSS enforces basic RSS 2.0.1 requirements on the generic Feed.
-func (f *Feed) ValidateRSS() error {
+func ValidateRSS(f *Feed) error {
 	// Channel-level required fields per RSS 2.0.1
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("rss: channel title required")
