@@ -49,21 +49,25 @@ func (a *JSONAttachment) MarshalJSON() ([]byte, error) {
 
 // JSONItem represents a single entry/post for the feed.
 type JSONItem struct {
-	Id            string           `json:"id"`
+	*JSONItemFieldExtensions
+	Title         string           `json:"title,omitempty"`
 	Url           string           `json:"url,omitempty"`
 	ExternalUrl   string           `json:"external_url,omitempty"`
-	Title         string           `json:"title,omitempty"`
-	ContentHTML   string           `json:"content_html,omitempty"`
-	ContentText   string           `json:"content_text,omitempty"`
-	Summary       string           `json:"summary,omitempty"`
-	Image         string           `json:"image,omitempty"`
-	BannerImage   string           `json:"banner_image,omitempty"`
-	PublishedDate *time.Time       `json:"date_published,omitempty"`
-	ModifiedDate  *time.Time       `json:"date_modified,omitempty"`
 	Authors       []*JSONAuthor    `json:"authors,omitempty"` // v1.1
-	Tags          []string         `json:"tags,omitempty"`
+	Summary       string           `json:"summary,omitempty"`
+	ContentHTML   string           `json:"content_html,omitempty"`
+	Id            string           `json:"id"`
+	ModifiedDate  *time.Time       `json:"date_modified,omitempty"`
+	PublishedDate *time.Time       `json:"date_published,omitempty"`
+	Image         string           `json:"image,omitempty"`
 	Attachments   []JSONAttachment `json:"attachments,omitempty"`
-	Exts          []ExtensionNode  `json:"-"`
+}
+
+type JSONItemFieldExtensions struct {
+	ContentText string          `json:"content_text,omitempty"`
+	BannerImage string          `json:"banner_image,omitempty"`
+	Tags        []string        `json:"tags,omitempty"`
+	Exts        []ExtensionNode `json:"-"`
 }
 
 // JSONHub describes an endpoint that can be used to subscribe to real-time notifications.
@@ -74,20 +78,24 @@ type JSONHub struct {
 
 // JSONFeed represents a syndication feed in the JSON Feed Version 1.1 format.
 type JSONFeed struct {
+	*JSONFeedFieldExtensions
+	Title       string        `json:"title"`
+	HomePageUrl string        `json:"home_page_url,omitempty"`
+	Description string        `json:"description,omitempty"`
+	Authors     []*JSONAuthor `json:"authors,omitempty"` // v1.1
+	Items       []*JSONItem   `json:"items,omitempty"`
+	Icon        string        `json:"icon,omitempty"`
+	Favicon     string        `json:"favicon,omitempty"`
+	FeedUrl     string        `json:"feed_url,omitempty"`
+}
+
+type JSONFeedFieldExtensions struct {
 	Version     string          `json:"version"`
-	Title       string          `json:"title"`
 	Language    string          `json:"language,omitempty"`
-	HomePageUrl string          `json:"home_page_url,omitempty"`
-	FeedUrl     string          `json:"feed_url,omitempty"`
-	Description string          `json:"description,omitempty"`
 	UserComment string          `json:"user_comment,omitempty"`
 	NextUrl     string          `json:"next_url,omitempty"`
-	Icon        string          `json:"icon,omitempty"`
-	Favicon     string          `json:"favicon,omitempty"`
-	Authors     []*JSONAuthor   `json:"authors,omitempty"` // v1.1
 	Expired     *bool           `json:"expired,omitempty"`
 	Hubs        []*JSONHub      `json:"hubs,omitempty"`
-	Items       []*JSONItem     `json:"items,omitempty"`
 	Exts        []ExtensionNode `json:"-"`
 }
 
@@ -142,10 +150,12 @@ func (f *JSONFeed) MarshalJSON() ([]byte, error) {
 // JSONFeed creates a new JSONFeed with a generic Feed struct's data.
 func (f *JSON) JSONFeed() *JSONFeed {
 	feed := &JSONFeed{
-		Version:     jsonFeedVersion,
+		JSONFeedFieldExtensions: &JSONFeedFieldExtensions{
+			Version:  jsonFeedVersion,
+			Language: f.Language,
+		},
 		Title:       f.Title,
 		Description: f.Description,
-		Language:    f.Language,
 	}
 
 	if f.Link != nil {
@@ -220,7 +230,9 @@ func newJSONItem(i *Item) *JSONItem {
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present
-		Exts:        i.Extensions,
+		JSONItemFieldExtensions: &JSONItemFieldExtensions{
+			Exts: i.Extensions,
+		},
 	}
 
 	if i.Link != nil {
