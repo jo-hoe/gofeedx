@@ -341,3 +341,36 @@ func WithAtomFeedExtension(fields AtomFeedExtensionFields) ExtOption {
 	}
 	return newFeedNodes(nodes...)
 }
+
+func WithAtomEntryExtension(fields AtomEntryExtensionFields) ExtOption {
+	var nodes []ExtensionNode
+	// atom:category
+	if s := strings.TrimSpace(fields.Category); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "category", Text: s})
+	}
+	// atom:rights
+	if s := strings.TrimSpace(fields.Rights); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "rights", Text: s})
+	}
+	// atom:contributor
+	if fields.Contributor != nil {
+		var children []ExtensionNode
+		if s := strings.TrimSpace(fields.Contributor.Name); s != "" {
+			children = append(children, ExtensionNode{Name: "name", Text: s})
+		}
+		if s := strings.TrimSpace(fields.Contributor.Uri); s != "" {
+			children = append(children, ExtensionNode{Name: "uri", Text: s})
+		}
+		if s := strings.TrimSpace(fields.Contributor.Email); s != "" {
+			children = append(children, ExtensionNode{Name: "email", Text: s})
+		}
+		if len(children) > 0 {
+			nodes = append(nodes, ExtensionNode{Name: "contributor", Children: children})
+		}
+	}
+	// pass-through custom nodes
+	if len(fields.Extra) > 0 {
+		nodes = append(nodes, fields.Extra...)
+	}
+	return newItemNodes(nodes...)
+}
