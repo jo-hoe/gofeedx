@@ -359,3 +359,51 @@ func WithRSSChannel(fields RSSChannelFields) ExtOption {
 	}
 	return newFeedNodes(nodes...)
 }
+
+// WithRSSFeedExtension returns an ExtOption to append RSS channel-level nodes.
+func WithRSSFeedExtension(fields RssFeedExtension) ExtOption {
+	var nodes []ExtensionNode
+	if s := strings.TrimSpace(fields.WebMaster); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "webMaster", Text: s})
+	}
+	if s := strings.TrimSpace(fields.Generator); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "generator", Text: s})
+	}
+	if s := strings.TrimSpace(fields.Docs); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "docs", Text: s})
+	}
+	if s := strings.TrimSpace(fields.Cloud); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "cloud", Text: s})
+	}
+	if fields.Ttl > 0 {
+		nodes = append(nodes, ExtensionNode{Name: "ttl", Text: strconv.Itoa(fields.Ttl)})
+	}
+	if s := strings.TrimSpace(fields.Rating); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "rating", Text: s})
+	}
+	if s := strings.TrimSpace(fields.SkipHours); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "skipHours", Text: s})
+	}
+	if s := strings.TrimSpace(fields.SkipDays); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "skipDays", Text: s})
+	}
+	if len(fields.Extra) > 0 {
+		nodes = append(nodes, fields.Extra...)
+	}
+	return newFeedNodes(nodes...)
+}
+
+// WithRSSItemExtension returns an ExtOption to append RSS item-level nodes.
+func WithRSSItemExtension(fields RssItemExtension) ExtOption {
+	var nodes []ExtensionNode
+	if s := strings.TrimSpace(fields.Category); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "category", Text: s})
+	}
+	if s := strings.TrimSpace(fields.Comments); s != "" {
+		nodes = append(nodes, ExtensionNode{Name: "comments", Text: s})
+	}
+	if len(fields.Extra) > 0 {
+		nodes = append(nodes, fields.Extra...)
+	}
+	return newItemNodes(nodes...)
+}
