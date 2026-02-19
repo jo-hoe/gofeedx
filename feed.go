@@ -96,7 +96,6 @@ func (f *Feed) Sort(less func(a, b *Item) bool) {
 	sort.SliceStable(f.Items, lessFunc)
 }
 
-
 // anyTimeFormat returns the first non-zero time formatted as a string or "".
 func anyTimeFormat(format string, times ...time.Time) string {
 	for _, t := range times {

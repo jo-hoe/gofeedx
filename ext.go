@@ -49,5 +49,3 @@ func (it *Item) ApplyExtensions(opts ...ExtOption) {
 		it.Extensions = append(it.Extensions, o.itemNodes()...)
 	}
 }
-
-

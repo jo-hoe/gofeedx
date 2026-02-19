@@ -9,7 +9,6 @@ import (
 	"github.com/jo-hoe/gofeedx"
 )
 
-
 // uuidV5 computes a UUID v5 from a namespace UUID string and a name per RFC 4122.
 // It is used here to compute expected podcast:guid values without external resources.
 func uuidV5(namespaceUUID, name string) string {

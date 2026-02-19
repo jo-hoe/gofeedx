@@ -137,8 +137,6 @@ type ItunesImage struct {
 	Href    string   `xml:"href,attr"`
 }
 
-
-
 // ItunesCategory supports nesting
 type ItunesCategory struct {
 	XMLName xml.Name          `xml:"itunes:category"`
@@ -216,13 +214,11 @@ type PSPItem struct {
 	Guid *RssGuid `xml:"guid"` // required
 
 	// iTunes item fields
-	ItunesDuration    string          `xml:"itunes:duration,omitempty"` // seconds
-
+	ItunesDuration string `xml:"itunes:duration,omitempty"` // seconds
 
 	// Extra custom nodes
 	Extra []ExtensionNode `xml:",any"`
 }
-
 
 /*
 Unified PSP-1 handling: configure podcast fields directly on Feed and Item,

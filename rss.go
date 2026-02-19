@@ -170,10 +170,10 @@ func (r *Rss) RssFeed() *RssFeed {
 	var image *RssImage
 	if r.Image != nil {
 		image = &RssImage{
-			Url:   r.Image.Url,
-			Title: r.Image.Title,
-			Link:  r.Image.Link,
-			Width: imgW,
+			Url:    r.Image.Url,
+			Title:  r.Image.Title,
+			Link:   r.Image.Link,
+			Width:  imgW,
 			Height: imgH,
 		}
 	}
