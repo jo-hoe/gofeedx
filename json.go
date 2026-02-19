@@ -48,7 +48,6 @@ func (a *JSONAttachment) MarshalJSON() ([]byte, error) {
 
 // JSONItem represents a single entry/post for the feed.
 type JSONItem struct {
-	*JSONItemExtension
 	Title         string           `json:"title,omitempty"`
 	Url           string           `json:"url,omitempty"`
 	ExternalUrl   string           `json:"external_url,omitempty"`
@@ -60,9 +59,7 @@ type JSONItem struct {
 	PublishedDate *time.Time       `json:"date_published,omitempty"`
 	Image         string           `json:"image,omitempty"`
 	Attachments   []JSONAttachment `json:"attachments,omitempty"`
-}
 
-type JSONItemExtension struct {
 	ContentText string          `json:"content_text,omitempty"`
 	BannerImage string          `json:"banner_image,omitempty"`
 	Tags        []string        `json:"tags,omitempty"`
@@ -77,7 +74,6 @@ type JSONHub struct {
 
 // JSONFeed represents a syndication feed in the JSON Feed Version 1.1 format.
 type JSONFeed struct {
-	*JSONFeedExtension
 	Title       string        `json:"title"`
 	HomePageUrl string        `json:"home_page_url,omitempty"`
 	Description string        `json:"description,omitempty"`
@@ -86,9 +82,7 @@ type JSONFeed struct {
 	Icon        string        `json:"icon,omitempty"`
 	Favicon     string        `json:"favicon,omitempty"`
 	FeedUrl     string        `json:"feed_url,omitempty"`
-}
 
-type JSONFeedExtension struct {
 	Version     string          `json:"version"`
 	Language    string          `json:"language,omitempty"`
 	UserComment string          `json:"user_comment,omitempty"`
@@ -149,10 +143,8 @@ func (f *JSONFeed) MarshalJSON() ([]byte, error) {
 // JSONFeed creates a new JSONFeed with a generic Feed struct's data.
 func (f *JSON) JSONFeed() *JSONFeed {
 	feed := &JSONFeed{
-		JSONFeedExtension: &JSONFeedExtension{
-			Version:  jsonFeedVersion,
-			Language: f.Language,
-		},
+		Version:     jsonFeedVersion,
+		Language:    f.Language,
 		Title:       f.Title,
 		Description: f.Description,
 	}
@@ -285,7 +277,6 @@ func newJSONItem(i *Item) *JSONItem {
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present
-		JSONItemExtension: &JSONItemExtension{},
 	}
 
 	if i.Link != nil {
@@ -381,9 +372,6 @@ func newJSONItem(i *Item) *JSONItem {
 
 	return item
 }
-
-
-
 
 // ValidateJSON enforces JSON Feed 1.1 essentials on the generic Feed.
 func ValidateJSON(f *Feed) error {
@@ -516,4 +504,3 @@ func (b *ItemBuilder) WithJSONImage(url string) *ItemBuilder {
 	}
 	return b.WithExtensions(ExtensionNode{Name: "_json:image", Text: url})
 }
-

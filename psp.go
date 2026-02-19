@@ -57,7 +57,6 @@ type PSPRSSRoot struct {
 
 // PSPChannel is the RSS channel with PSP/iTunes extensions.
 type PSPChannel struct {
-	*PSPChannelExtension
 	Title            string `xml:"title"`       // required
 	Link             string `xml:"link"`        // required
 	Description      string `xml:"description"` // required (may embed CDATA in content:encoded for rich HTML elsewhere)
@@ -68,6 +67,27 @@ type PSPChannel struct {
 	Items            []*PSPItem        `xml:"item"`
 	ItunesImage      *ItunesImage      `xml:"itunes:image,omitempty"`
 	ItunesCategories []*ItunesCategory `xml:"itunes:category,omitempty"`
+
+	XMLName  xml.Name `xml:"channel"`
+	Language string   `xml:"language"` // required
+
+	// Recommended and optional standard RSS fields
+	Copyright string `xml:"copyright,omitempty"`
+
+	// atom:link rel="self"
+	AtomSelf *PSPAtomLink `xml:"atom:link,omitempty"`
+	// iTunes fields
+	ItunesExplicit  *bool
+	ItunesType      string // "episodic" | "serial"
+	ItunesComplete  bool   // emits "yes" when true
+	ItunesImageHref string // overrides or supplements image href from Feed.Image.Url
+
+	// podcast namespace
+	PodcastLocked  *bool // emits "yes"/"no"
+	PodcastTXT     *PodcastTXT
+	PodcastFunding *PodcastFunding
+
+	Extra []ExtensionNode `xml:",any"`
 }
 
 // MarshalXML customizes channel XML to avoid emitting untagged struct fields and to include extension nodes.
@@ -81,14 +101,14 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 
 	// language (required)
-	if ch.PSPChannelExtension != nil && strings.TrimSpace(ch.Language) != "" {
+	if strings.TrimSpace(ch.Language) != "" {
 		if err := e.EncodeElement(ch.Language, xml.StartElement{Name: xml.Name{Local: "language"}}); err != nil {
 			return err
 		}
 	}
 
 	// atom:link rel=self
-	if ch.PSPChannelExtension != nil && ch.AtomSelf != nil {
+	if ch.AtomSelf != nil {
 		if err := e.Encode(ch.AtomSelf); err != nil {
 			return err
 		}
@@ -130,51 +150,48 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 
-	// PSP/iTunes channel extension typed fields
-	if ch.PSPChannelExtension != nil {
-		// itunes:explicit
-		if ch.ItunesExplicit != nil {
-			val := "false"
-			if *ch.ItunesExplicit {
-				val = "true"
-			}
-			if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
-				return err
-			}
+	// itunes:explicit
+	if ch.ItunesExplicit != nil {
+		val := "false"
+		if *ch.ItunesExplicit {
+			val = "true"
 		}
-		// itunes:type
-		if s := strings.TrimSpace(ch.ItunesType); s != "" {
-			if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:type"}}); err != nil {
-				return err
-			}
+		if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
+			return err
 		}
-		// itunes:complete
-		if ch.ItunesComplete {
-			if err := e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}}); err != nil {
-				return err
-			}
+	}
+	// itunes:type
+	if s := strings.TrimSpace(ch.ItunesType); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:type"}}); err != nil {
+			return err
 		}
-		// podcast:locked
-		if ch.PodcastLocked != nil {
-			val := "no"
-			if *ch.PodcastLocked {
-				val = "yes"
-			}
-			if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}}); err != nil {
-				return err
-			}
+	}
+	// itunes:complete
+	if ch.ItunesComplete {
+		if err := e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}}); err != nil {
+			return err
 		}
-		// podcast:txt
-		if ch.PodcastTXT != nil {
-			if err := e.Encode(ch.PodcastTXT); err != nil {
-				return err
-			}
+	}
+	// podcast:locked
+	if ch.PodcastLocked != nil {
+		val := "no"
+		if *ch.PodcastLocked {
+			val = "yes"
 		}
-		// podcast:funding
-		if ch.PodcastFunding != nil {
-			if err := e.Encode(ch.PodcastFunding); err != nil {
-				return err
-			}
+		if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}}); err != nil {
+			return err
+		}
+	}
+	// podcast:txt
+	if ch.PodcastTXT != nil {
+		if err := e.Encode(ch.PodcastTXT); err != nil {
+			return err
+		}
+	}
+	// podcast:funding
+	if ch.PodcastFunding != nil {
+		if err := e.Encode(ch.PodcastFunding); err != nil {
+			return err
 		}
 	}
 
@@ -210,7 +227,7 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 
 	// extension nodes (including podcast:guid or other injected nodes)
-	if ch.PSPChannelExtension != nil && len(ch.Extra) > 0 {
+	if len(ch.Extra) > 0 {
 		for _, n := range ch.Extra {
 			if err := e.Encode(n); err != nil {
 				return err
@@ -223,30 +240,6 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		return err
 	}
 	return e.Flush()
-}
-
-// PSPChannelExtension holds channel-level PSP/iTunes fields for unified builder.
-type PSPChannelExtension struct {
-	XMLName  xml.Name `xml:"channel"`
-	Language string   `xml:"language"` // required
-
-	// Recommended and optional standard RSS fields
-	Copyright string `xml:"copyright,omitempty"`
-
-	// atom:link rel="self"
-	AtomSelf *PSPAtomLink `xml:"atom:link,omitempty"`
-	// iTunes fields
-	ItunesExplicit  *bool
-	ItunesType      string // "episodic" | "serial"
-	ItunesComplete  bool   // emits "yes" when true
-	ItunesImageHref string // overrides or supplements image href from Feed.Image.Url
-
-	// podcast namespace
-	PodcastLocked  *bool // emits "yes"/"no"
-	PodcastTXT     *PodcastTXT
-	PodcastFunding *PodcastFunding
-
-	Extra []ExtensionNode `xml:",any"`
 }
 
 // PSPAtomLink emits atom:link
@@ -327,7 +320,6 @@ OPTIONAL (supported when relevant):
 - <itunes:block>                     (ItunesBlock) — "yes"
 */
 type PSPItem struct {
-	*PSPItemExtension
 	Title          string        `xml:"title"`                     // required
 	Link           string        `xml:"link,omitempty"`            // recommended
 	Description    string        `xml:"description,omitempty"`     // recommended (wrap HTML in CDATA)
@@ -336,9 +328,6 @@ type PSPItem struct {
 	Enclosure      *RssEnclosure `xml:"enclosure"`                 // required
 	ItunesDuration string        `xml:"itunes:duration,omitempty"` // seconds
 
-}
-
-type PSPItemExtension struct {
 	XMLName xml.Name    `xml:"item"`
 	Content *RssContent `xml:"content:encoded,omitempty"` // optional HTML content in CDATA (content namespace)
 	// Extra custom nodes
@@ -439,13 +428,11 @@ func (p *PSP) buildChannel() *PSPChannel {
 		linkHref = p.Link.Href
 	}
 	ch := &PSPChannel{
-		Title:       p.Title,
-		Description: p.Description,
-		Link:        linkHref,
-		PSPChannelExtension: &PSPChannelExtension{
-			Language:  p.Language,
-			Copyright: p.Copyright,
-		},
+		Title:         p.Title,
+		Description:   p.Description,
+		Link:          linkHref,
+		Language:      p.Language,
+		Copyright:     p.Copyright,
 		PubDate:       pub,
 		LastBuildDate: build,
 	}
@@ -563,8 +550,6 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 		Description: it.Description,
 		PubDate:     anyTimeFormat(time.RFC1123Z, it.Created, it.Updated),
 	}
-	// ensure embedded extension struct is non-nil before using Extra
-	pi.PSPItemExtension = &PSPItemExtension{}
 	if it.Link != nil {
 		pi.Link = it.Link.Href
 	}

@@ -47,7 +47,6 @@ type RssGuid struct {
 }
 
 type RssItem struct {
-	*RssItemExtension
 	Title       string      `xml:"title"` // optional (spec requires title or description)
 	Link        string      `xml:"link"`  // optional
 	Source      string      `xml:"source,omitempty"`
@@ -57,17 +56,13 @@ type RssItem struct {
 	Guid        *RssGuid
 	PubDate     string `xml:"pubDate,omitempty"`
 	Enclosure   *RssEnclosure
-}
-
-type RssItemExtension struct {
-	XMLName  xml.Name        `xml:"item"`
-	Category string          `xml:"category,omitempty"`
-	Comments string          `xml:"comments,omitempty"`
-	Extra    []ExtensionNode `xml:",any"` // custom nodes at item scope
+	XMLName     xml.Name        `xml:"item"`
+	Category    string          `xml:"category,omitempty"`
+	Comments    string          `xml:"comments,omitempty"`
+	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
 type RssFeed struct {
-	*RssFeedExtension
 	Title          string     `xml:"title"`       // required
 	Link           string     `xml:"link"`        // required
 	Description    string     `xml:"description"` // required
@@ -79,9 +74,7 @@ type RssFeed struct {
 	Image          *RssImage  `xml:"image,omitempty"`
 	Language       string     `xml:"language,omitempty"`
 	Category       string     `xml:"category,omitempty"`
-}
 
-type RssFeedExtension struct {
 	XMLName   xml.Name        `xml:"channel"`
 	WebMaster string          `xml:"webMaster,omitempty"`
 	Generator string          `xml:"generator,omitempty"`
@@ -92,16 +85,12 @@ type RssFeedExtension struct {
 	SkipHours string          `xml:"skipHours,omitempty"`
 	SkipDays  string          `xml:"skipDays,omitempty"`
 	Extra     []ExtensionNode `xml:",any"` // custom nodes at channel scope
-
 }
 
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
 type Rss struct {
 	*Feed
 }
-
-
-
 
 // FeedXml returns an XML-Ready object for an Rss object.
 func (r *Rss) FeedXml() interface{} {
@@ -193,16 +182,14 @@ func (r *Rss) RssFeed() *RssFeed {
 		Copyright:      r.Copyright,
 		Image:          image,
 		Language:       r.Language,
-		RssFeedExtension: &RssFeedExtension{
-			WebMaster: webMaster,
-			Generator: generator,
-			Docs:      docs,
-			Cloud:     cloud,
-			Ttl:       ttl,
-			Rating:    rating,
-			SkipHours: skipHours,
-			SkipDays:  skipDays,
-		},
+		WebMaster:      webMaster,
+		Generator:      generator,
+		Docs:           docs,
+		Cloud:          cloud,
+		Ttl:            ttl,
+		Rating:         rating,
+		SkipHours:      skipHours,
+		SkipDays:       skipDays,
 	}
 
 	// Category override or generic mapping
@@ -276,9 +263,6 @@ func newRssItem(i *Item) *RssItem {
 	}
 	// append extensions
 	if len(i.Extensions) > 0 {
-		if item.RssItemExtension == nil {
-			item.RssItemExtension = &RssItemExtension{}
-		}
 		var extras []ExtensionNode
 		for _, n := range i.Extensions {
 			switch n.Name {
@@ -445,4 +429,3 @@ func (b *ItemBuilder) WithRSSComments(url string) *ItemBuilder {
 	}
 	return b.WithExtensions(ExtensionNode{Name: "_rss:comments", Text: url})
 }
-

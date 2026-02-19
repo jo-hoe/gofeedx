@@ -48,19 +48,15 @@ type AtomLink struct {
 }
 
 type AtomEntry struct {
-	*AtomEntryExtension
-	Title     string       `xml:"title"` // required
-	Links     []AtomLink
-	Source    string       `xml:"source,omitempty"`
-	Author    *AtomAuthor  // required if feed lacks an author
-	Summary   *AtomSummary
-	Content   *AtomContent
-	Id        string `xml:"id"`      // required
-	Updated   string `xml:"updated"` // required
-	Published string `xml:"published,omitempty"`
-}
-
-type AtomEntryExtension struct {
+	Title       string `xml:"title"` // required
+	Links       []AtomLink
+	Source      string      `xml:"source,omitempty"`
+	Author      *AtomAuthor // required if feed lacks an author
+	Summary     *AtomSummary
+	Content     *AtomContent
+	Id          string   `xml:"id"`      // required
+	Updated     string   `xml:"updated"` // required
+	Published   string   `xml:"published,omitempty"`
 	XMLName     xml.Name `xml:"entry"`
 	Xmlns       string   `xml:"xmlns,attr,omitempty"`
 	Category    string   `xml:"category,omitempty"`
@@ -70,23 +66,19 @@ type AtomEntryExtension struct {
 }
 
 type AtomFeed struct {
-	*AtomFeedExtension
-	Title    string `xml:"title"` // required
-	Link     *AtomLink
-	Subtitle string       `xml:"subtitle,omitempty"`
-	Author   *AtomAuthor  `xml:"author,omitempty"`
-	Updated  string       `xml:"updated"` // required
-	Id       string       `xml:"id"`      // required
-	Entries  []*AtomEntry `xml:"entry"`
-	Category string       `xml:"category,omitempty"`
-	Rights   string       `xml:"rights,omitempty"` // copyright used
-	Logo     string       `xml:"logo,omitempty"`
-}
-
-type AtomFeedExtension struct {
-	XMLName     xml.Name `xml:"feed"`
-	Xmlns       string   `xml:"xmlns,attr"`
-	Icon        string   `xml:"icon,omitempty"`
+	Title       string `xml:"title"` // required
+	Link        *AtomLink
+	Subtitle    string       `xml:"subtitle,omitempty"`
+	Author      *AtomAuthor  `xml:"author,omitempty"`
+	Updated     string       `xml:"updated"` // required
+	Id          string       `xml:"id"`      // required
+	Entries     []*AtomEntry `xml:"entry"`
+	Category    string       `xml:"category,omitempty"`
+	Rights      string       `xml:"rights,omitempty"` // copyright used
+	Logo        string       `xml:"logo,omitempty"`
+	XMLName     xml.Name     `xml:"feed"`
+	Xmlns       string       `xml:"xmlns,attr"`
+	Icon        string       `xml:"icon,omitempty"`
 	Contributor *AtomContributor
 	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
@@ -94,9 +86,6 @@ type AtomFeedExtension struct {
 type Atom struct {
 	*Feed
 }
-
-
-
 
 // FeedXml returns an XML-Ready object for an Atom object
 func (a *Atom) FeedXml() interface{} {
@@ -115,9 +104,7 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		link = &Link{}
 	}
 	feed := &AtomFeed{
-		AtomFeedExtension: &AtomFeedExtension{
-			Xmlns: atomNS,
-		},
+		Xmlns:    atomNS,
 		Title:    a.Title,
 		Link:     &AtomLink{Href: link.Href, Rel: "alternate"},
 		Subtitle: a.Description,
@@ -256,6 +243,8 @@ func newAtomEntry(i *Item) *AtomEntry {
 		Id:      id,
 		Updated: anyTimeFormat(time.RFC3339, i.Updated, i.Created),
 	}
+	x.Xmlns = atomNS
+
 	// Published maps to item Created timestamp when available
 	if !i.Created.IsZero() {
 		x.Published = i.Created.Format(time.RFC3339)
@@ -287,11 +276,6 @@ func newAtomEntry(i *Item) *AtomEntry {
 
 	// Custom item/entry extensions: map known Atom helpers and keep others
 	if len(i.Extensions) > 0 {
-		if x.AtomEntryExtension == nil {
-			x.AtomEntryExtension = &AtomEntryExtension{
-				Xmlns: atomNS,
-			}
-		}
 		var extras []ExtensionNode
 		for _, n := range i.Extensions {
 			name := strings.TrimSpace(strings.ToLower(n.Name))
@@ -536,5 +520,3 @@ func (b *ItemBuilder) WithAtomSource(src string) *ItemBuilder {
 	}
 	return b.WithExtensions(ExtensionNode{Name: "_atom:source", Text: src})
 }
-
-
