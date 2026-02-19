@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -340,13 +341,20 @@ OPTIONAL (supported when relevant):
 - <itunes:block>                     (ItunesBlock) — "yes"
 */
 type PSPItem struct {
-	Title          string        `xml:"title"`                     // required
-	Link           string        `xml:"link,omitempty"`            // recommended
-	Description    string        `xml:"description,omitempty"`     // recommended (wrap HTML in CDATA)
-	Guid           *RssGuid      `xml:"guid"`                      // required
-	PubDate        string        `xml:"pubDate,omitempty"`         // recommended RFC2822
-	Enclosure      *RssEnclosure `xml:"enclosure"`                 // required
-	ItunesDuration string        `xml:"itunes:duration,omitempty"` // seconds
+	Title             string           `xml:"title"`                        // required
+	Link              string           `xml:"link,omitempty"`               // recommended
+	Description       string           `xml:"description,omitempty"`        // recommended (wrap HTML in CDATA)
+	Guid              *RssGuid         `xml:"guid"`                         // required
+	PubDate           string           `xml:"pubDate,omitempty"`            // recommended RFC2822
+	Enclosure         *RssEnclosure    `xml:"enclosure"`                    // required
+	ItunesDuration    string           `xml:"itunes:duration,omitempty"`    // seconds
+	ItunesImage       *ItunesImage     `xml:"itunes:image,omitempty"`       // item artwork
+	ItunesExplicit    string           `xml:"itunes:explicit,omitempty"`    // "true" | "false"
+	ItunesEpisode     int              `xml:"itunes:episode,omitempty"`     // > 0
+	ItunesSeason      int              `xml:"itunes:season,omitempty"`      // > 0
+	ItunesEpisodeType string           `xml:"itunes:episodeType,omitempty"` // "full" | "trailer" | "bonus"
+	ItunesBlock       string           `xml:"itunes:block,omitempty"`       // "yes"
+	Transcripts       []*PSPTranscript `xml:"podcast:transcript,omitempty"` // multiple allowed
 
 	XMLName xml.Name    `xml:"item"`
 	Content *RssContent `xml:"content:encoded,omitempty"` // optional HTML content in CDATA (content namespace)
@@ -620,6 +628,117 @@ func handleExtPodcastFunding(ch *PSPChannel, n ExtensionNode) bool {
 	return false
 }
 
+// Item-level PSP/iTunes extension mapping
+
+type itemExtHandler func(*PSPItem, ExtensionNode) bool
+
+func mapItemExtensions(exts []ExtensionNode, it *PSPItem) (extras []ExtensionNode) {
+	if len(exts) == 0 {
+		return nil
+	}
+	handlers := map[string]itemExtHandler{
+		"itunes:explicit":     itemHandleItunesExplicit,
+		"itunes:image":        itemHandleItunesImage,
+		"itunes:episode":      itemHandleItunesEpisode,
+		"itunes:season":       itemHandleItunesSeason,
+		"itunes:episodetype":  itemHandleItunesEpisodeType,
+		"itunes:block":        itemHandleItunesBlock,
+		"podcast:transcript":  itemHandlePodcastTranscript,
+	}
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(it, n) {
+				continue
+			}
+		}
+		extras = append(extras, n)
+	}
+	return
+}
+
+func itemHandleItunesExplicit(it *PSPItem, n ExtensionNode) bool {
+	t := strings.ToLower(strings.TrimSpace(n.Text))
+	if t == "true" || t == "false" {
+		it.ItunesExplicit = t
+		return true
+	}
+	return false
+}
+
+func itemHandleItunesImage(it *PSPItem, n ExtensionNode) bool {
+	if n.Attrs == nil {
+		return false
+	}
+	if href, ok := n.Attrs["href"]; ok {
+		if s := strings.TrimSpace(href); s != "" {
+			it.ItunesImage = &ItunesImage{Href: s}
+			return true
+		}
+	}
+	return false
+}
+
+func itemHandleItunesEpisode(it *PSPItem, n ExtensionNode) bool {
+	v, err := strconv.Atoi(strings.TrimSpace(n.Text))
+	if err == nil && v > 0 {
+		it.ItunesEpisode = v
+		return true
+	}
+	return false
+}
+
+func itemHandleItunesSeason(it *PSPItem, n ExtensionNode) bool {
+	v, err := strconv.Atoi(strings.TrimSpace(n.Text))
+	if err == nil && v > 0 {
+		it.ItunesSeason = v
+		return true
+	}
+	return false
+}
+
+func itemHandleItunesEpisodeType(it *PSPItem, n ExtensionNode) bool {
+	t := strings.ToLower(strings.TrimSpace(n.Text))
+	switch t {
+	case "full", "trailer", "bonus":
+		it.ItunesEpisodeType = t
+		return true
+	default:
+		return false
+	}
+}
+
+func itemHandleItunesBlock(it *PSPItem, n ExtensionNode) bool {
+	if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
+		it.ItunesBlock = "yes"
+		return true
+	}
+	return false
+}
+
+func itemHandlePodcastTranscript(it *PSPItem, n ExtensionNode) bool {
+	if n.Attrs == nil {
+		return false
+	}
+	url := strings.TrimSpace(n.Attrs["url"])
+	typ := strings.TrimSpace(n.Attrs["type"])
+	if url == "" || typ == "" {
+		return false
+	}
+	tr := &PSPTranscript{
+		Url:  url,
+		Type: typ,
+	}
+	if s := strings.TrimSpace(n.Attrs["language"]); s != "" {
+		tr.Language = s
+	}
+	if s := strings.TrimSpace(n.Attrs["rel"]); s != "" {
+		tr.Rel = s
+	}
+	it.Transcripts = append(it.Transcripts, tr)
+	return true
+}
+
 func (p *PSP) buildItem(it *Item) *PSPItem {
 	pi := &PSPItem{
 		Title:       it.Title,
@@ -638,10 +757,10 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 		}
 	}
 	// guid required
-	if it.ID != "" {
-		pi.Guid = &RssGuid{ID: it.ID}
+	if strings.TrimSpace(it.ID) != "" {
+		pi.Guid = &RssGuid{ID: it.ID, IsPermaLink: it.IsPermaLink}
 	} else {
-		pi.Guid = &RssGuid{ID: fallbackItemGuid(it)}
+		pi.Guid = &RssGuid{ID: fallbackItemGuid(it), IsPermaLink: it.IsPermaLink}
 	}
 
 	// iTunes item fields (from generic feed where available)
@@ -653,9 +772,12 @@ func (p *PSP) buildItem(it *Item) *PSPItem {
 		pi.Content = &RssContent{Content: it.Content}
 	}
 
-	// Custom item nodes from src
+	// Map PSP/iTunes item-level extensions into typed fields; keep unknown in Extra
 	if len(it.Extensions) > 0 {
-		pi.Extra = append(pi.Extra, it.Extensions...)
+		extras := mapItemExtensions(it.Extensions, pi)
+		if len(extras) > 0 {
+			pi.Extra = append(pi.Extra, extras...)
+		}
 	}
 	return pi
 }
@@ -800,7 +922,7 @@ func (b *ItemBuilder) WithPSPExplicit(explicit bool) *ItemBuilder {
 	return b.WithExtensions(ExtensionNode{Name: "itunes:explicit", Text: text})
 }
 
-// WithPSPTranscript adds a podcast:transcript node at item scope.
+	// WithPSPTranscript adds a podcast:transcript node at item scope.
 func (b *ItemBuilder) WithPSPTranscript(url, typ, language, rel string) *ItemBuilder {
 	url = strings.TrimSpace(url)
 	typ = strings.TrimSpace(typ)
@@ -818,4 +940,48 @@ func (b *ItemBuilder) WithPSPTranscript(url, typ, language, rel string) *ItemBui
 		attrs["rel"] = s
 	}
 	return b.WithExtensions(ExtensionNode{Name: "podcast:transcript", Attrs: attrs})
+}
+
+// WithPSPImageHref sets/overrides itunes:image@href at item scope.
+func (b *ItemBuilder) WithPSPImageHref(href string) *ItemBuilder {
+	href = strings.TrimSpace(href)
+	if href == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:image", Attrs: map[string]string{"href": href}})
+}
+
+// WithPSPEpisode sets itunes:episode (must be > 0) at item scope.
+func (b *ItemBuilder) WithPSPEpisode(n int) *ItemBuilder {
+	if n <= 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:episode", Text: strconv.Itoa(n)})
+}
+
+// WithPSPSeason sets itunes:season (must be > 0) at item scope.
+func (b *ItemBuilder) WithPSPSeason(n int) *ItemBuilder {
+	if n <= 0 {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:season", Text: strconv.Itoa(n)})
+}
+
+// WithPSPEpisodeType sets itunes:episodeType ("full" | "trailer" | "bonus") at item scope.
+func (b *ItemBuilder) WithPSPEpisodeType(t string) *ItemBuilder {
+	t = strings.TrimSpace(strings.ToLower(t))
+	switch t {
+	case "full", "trailer", "bonus":
+		return b.WithExtensions(ExtensionNode{Name: "itunes:episodeType", Text: t})
+	default:
+		return b
+	}
+}
+
+// WithPSPBlock sets itunes:block ("yes") at item scope when true.
+func (b *ItemBuilder) WithPSPBlock(block bool) *ItemBuilder {
+	if !block {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:block", Text: "yes"})
 }
