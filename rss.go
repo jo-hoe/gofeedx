@@ -48,11 +48,11 @@ type RssGuid struct {
 
 type RssItem struct {
 	*RssItemExtension
-	Title       string      `xml:"title"` // required
-	Link        string      `xml:"link"`  // required by spec, but often omitted by feeds
+	Title       string      `xml:"title"` // optional (spec requires title or description)
+	Link        string      `xml:"link"`  // optional
 	Source      string      `xml:"source,omitempty"`
 	Author      string      `xml:"author,omitempty"`
-	Description string      `xml:"description"` // required by spec; we include if provided
+	Description string      `xml:"description"` // optional
 	Content     *RssContent `xml:"content:encoded,omitempty"`
 	Guid        *RssGuid
 	PubDate     string `xml:"pubDate,omitempty"`
@@ -298,19 +298,3 @@ func ValidateRSS(f *Feed) error {
 	return nil
 }
 
-/*
-Unified typed builders for RSS channel fields.
-
-Users can attach channel-level RSS fields via ExtOption without manually constructing nodes.
-These helpers store internal markers that the RSS encoder consumes to set canonical struct fields.
-This avoids stringly-typed public usage while keeping code colocated in rss.go.
-*/
-
-// RSSChannelFields holds channel-level RSS fields for unified builder.
-
-// WithRSSChannel returns an ExtOption to set RSS channel fields.
-// Internally stores markers consumed by the RSS encoder.
-
-// WithRSSFeedExtension returns an ExtOption to append RSS channel-level nodes.
-
-// WithRSSItemExtension returns an ExtOption to append RSS item-level nodes.

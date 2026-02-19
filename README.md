@@ -7,8 +7,8 @@ It exposes a single, consistent, builder-based API and supports custom namespace
 
 - [RSS 2.0.1](https://www.rssboard.org/rss-2-0-1)
 - [Atom 1.0](https://www.ietf.org/rfc/rfc4287.txt)
-- [PSP-1: The Podcast RSS Standard](https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification)
-- and [JSON Feed 1.1](https://jsonfeed.org/version/1.1/)
+- [JSON Feed 1.1](https://jsonfeed.org/version/1.1/)
+- and [PSP-1: The Podcast RSS Standard](https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification)
 
 ## Installation
 
@@ -92,8 +92,8 @@ func main() {
    gofeedx.ExtensionNode{Name: "itunes:explicit", Text: "true"},
    // Example: podcast:funding at channel scope
    gofeedx.ExtensionNode{Name: "podcast:funding", Attrs: map[string]string{"url": "https://example.com/support"}, Text: "Support Us"},
-  ).
-  Build()
+  ).Build()
+  
  if err != nil {
   panic(err)
  }

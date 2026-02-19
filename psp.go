@@ -1,11 +1,10 @@
 package gofeedx
 
-// PSP-1: The Podcast RSS Standard encoder and builder
-// Emits RSS 2.0 with required namespaces, enforces required PSP elements,
-// and provides unified builder-style helpers via ExtOption.
-//
-// see https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification
-// and https://podcast-standard.org/podcast_standard/
+ // PSP-1: The Podcast RSS Standard encoder.
+ // Emits RSS 2.0 with required namespaces and enforces required PSP elements.
+ //
+ // see https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification
+ // and https://podcast-standard.org/podcast_standard/
 
 import (
 	"encoding/xml"
@@ -56,39 +55,7 @@ type PSPRSSRoot struct {
 	Channel   *PSPChannel `xml:"channel"`
 }
 
-/*
-PSPChannel is the <channel> element with RSS/iTunes/Podcast extensions.
-
-PSP-1 requirements classification for channel-level elements:
-
-REQUIRED (must be present and non-empty):
-- <atom:link rel="self" type="application/rss+xml"> (AtomSelf)
-- <title>                                  (Title)
-- <description>                            (Description) — up to 4000 bytes
-- <link>                                   (Link) — site or page URL
-- <language>                               (Language) — ISO 639 format
-- <itunes:category>                       (ItunesCategories) — at least one; order by priority
-- <itunes:explicit>                       (ItunesExplicit) — "true" or "false"
-- <itunes:image href="..."/>              (ItunesImage) — artwork URL
-
-RECOMMENDED (encouraged but not required):
-- <podcast:locked>                          (PodcastLocked) — "yes" or "no"
-- <podcast:guid>                            (PodcastGuid) — UUIDv5 derived from feed URL
-- <itunes:author>                          (ItunesAuthor)
-
-OPTIONAL (supported when relevant):
-  - <copyright>                               (Copyright)
-  - <podcast:txt [purpose="..."]>             (PodcastTXT) — value up to 4000 chars; purpose up to 128 chars
-  - <podcast:funding url="...">Label</podcast:funding> (PodcastFunding)
-    Note: optional in feeds, but PSP-certified hosts/players must support it.
-  - <itunes:type>                             (ItunesType) — "episodic" or "serial"
-    Episodic is assumed if absent; REQUIRED for serial podcasts.
-  - <itunes:complete>                         (ItunesComplete) — "yes"
-
-Other standard RSS fields commonly used:
-- <pubDate>         (PubDate) — OPTIONAL (RSS 2.0)
-- <lastBuildDate>   (LastBuildDate) — OPTIONAL (RSS 2.0)
-*/
+ // PSPChannel is the RSS channel with PSP/iTunes extensions.
 type PSPChannel struct {
 	*PSPChannelExtension
 	Title            string `xml:"title"`       // required
@@ -326,10 +293,6 @@ type PSPItemExtension struct {
 	Extra []ExtensionNode `xml:",any"`
 }
 
-/*
-Unified PSP-1 handling: configure podcast fields directly on Feed and Item,
-then call Feed.ToPSPRSSFeed()/WritePSPRSS() or ToPSPRSSString() to render a compliant PSP-1 RSS feed.
-*/
 
 // PSP is a wrapper to marshal a Feed as PSP-1 RSS with required namespaces.
 type PSP struct {
@@ -339,8 +302,8 @@ type PSP struct {
 
 
 
-// FeedXml returns an XML-Ready object for a PSP wrapper.
-func (p *PSP) FeedXml() interface{} {
+ // FeedXml returns an XML-Ready object for a PSP wrapper.
+ func (p *PSP) FeedXml() interface{} {
 	return p.wrapRoot(p.buildChannel())
 }
 

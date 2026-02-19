@@ -50,10 +50,10 @@ type AtomLink struct {
 type AtomEntry struct {
 	*AtomEntryExtension
 	Title     string       `xml:"title"` // required
-	Links     []AtomLink   // required if no child 'content' elements
+	Links     []AtomLink
 	Source    string       `xml:"source,omitempty"`
 	Author    *AtomAuthor  // required if feed lacks an author
-	Summary   *AtomSummary // required if content has src or content is base64
+	Summary   *AtomSummary
 	Content   *AtomContent
 	Id        string `xml:"id"`      // required
 	Updated   string `xml:"updated"` // required

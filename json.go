@@ -105,7 +105,7 @@ type JSON struct {
 
 /*
 ToJSONString encodes f into a JSON string. Returns an error if marshalling fails.
-Use Feed.ToJSONFeed() to get the structured JSONFeed value.
+Use JSON.JSONFeed() to get the structured JSONFeed value.
 */
 func (f *JSON) ToJSONString() (string, error) {
 	return f.JSONFeed().ToJSONString()
@@ -302,8 +302,3 @@ func ValidateJSON(f *Feed) error {
 	return nil
 }
 
-// WithJSONFeedExtension returns an ExtOption to append JSON Feed root-level extension keys.
-// Note: JSON extensions are flattened as name -> text pairs; complex objects/arrays are not supported.
-
-// WithJSONItemExtension returns an ExtOption to append JSON Feed item-level extension keys.
-// Note: tags are joined as a comma-separated string due to flattened key/value encoding.

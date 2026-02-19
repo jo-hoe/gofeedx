@@ -150,16 +150,15 @@ func (b *FeedBuilder) WithExtensions(nodes ...ExtensionNode) *FeedBuilder {
 	return b
 }
 
-// AddItem appends a built item to the feed.
-// If ib.Build() returns an error, Build() on the feed will fail; the error is deferred until Build.
-func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
+ // AddItem appends a built item to the feed.
+ // If ib.Build() returns an error, it is ignored here and handled by profile validation in Build.
+ func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
 	if ib == nil {
 		return b
 	}
 	it, err := ib.Build()
 	if err != nil && b.strict {
-		// Record an invalid placeholder to preserve order and surface error at Build time through validation
-		// We keep the item with minimal fields to allow later profile-based fixes (e.g., auto-id)
+		// Ignore item build error; nil items are appended and filtered in Build().
 	}
 	b.items = append(b.items, it) // it may be nil if ib.Build() failed in lenient mode; filter in Build()
 	return b
