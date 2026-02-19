@@ -100,102 +100,148 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		return err
 	}
 
-	// language (required)
-	if strings.TrimSpace(ch.Language) != "" {
-		if err := e.EncodeElement(ch.Language, xml.StartElement{Name: xml.Name{Local: "language"}}); err != nil {
-			return err
-		}
+	if err := ch.encodeLanguage(e); err != nil {
+		return err
+	}
+	if err := ch.encodeAtomSelf(e); err != nil {
+		return err
+	}
+	if err := ch.encodeCoreText(e); err != nil {
+		return err
+	}
+	if err := ch.encodeDates(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesAuthor(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesExplicit(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesType(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesComplete(e); err != nil {
+		return err
+	}
+	if err := ch.encodePodcastLocked(e); err != nil {
+		return err
+	}
+	if err := ch.encodePodcastTXT(e); err != nil {
+		return err
+	}
+	if err := ch.encodePodcastFunding(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItems(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesImage(e); err != nil {
+		return err
+	}
+	if err := ch.encodeItunesCategories(e); err != nil {
+		return err
+	}
+	if err := ch.encodeExtensions(e); err != nil {
+		return err
 	}
 
-	// atom:link rel=self
+	// Close <channel>
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
+}
+
+// Internal helpers to reduce cyclomatic complexity of MarshalXML.
+
+func (ch *PSPChannel) encodeTextIfSet(e *xml.Encoder, name, value string) error {
+	if s := strings.TrimSpace(value); s != "" {
+		return e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: name}})
+	}
+	return nil
+}
+
+func (ch *PSPChannel) encodeLanguage(e *xml.Encoder) error {
+	return ch.encodeTextIfSet(e, "language", ch.Language)
+}
+
+func (ch *PSPChannel) encodeAtomSelf(e *xml.Encoder) error {
 	if ch.AtomSelf != nil {
-		if err := e.Encode(ch.AtomSelf); err != nil {
-			return err
-		}
+		return e.Encode(ch.AtomSelf)
 	}
+	return nil
+}
 
-	// title, link, description
-	if s := strings.TrimSpace(ch.Title); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "title"}}); err != nil {
-			return err
-		}
+func (ch *PSPChannel) encodeCoreText(e *xml.Encoder) error {
+	if err := ch.encodeTextIfSet(e, "title", ch.Title); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(ch.Link); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
-			return err
-		}
+	if err := ch.encodeTextIfSet(e, "link", ch.Link); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(ch.Description); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "description"}}); err != nil {
-			return err
-		}
-	}
+	return ch.encodeTextIfSet(e, "description", ch.Description)
+}
 
-	// pubDate, lastBuildDate
-	if s := strings.TrimSpace(ch.PubDate); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
-			return err
-		}
+func (ch *PSPChannel) encodeDates(e *xml.Encoder) error {
+	if err := ch.encodeTextIfSet(e, "pubDate", ch.PubDate); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(ch.LastBuildDate); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "lastBuildDate"}}); err != nil {
-			return err
-		}
-	}
+	return ch.encodeTextIfSet(e, "lastBuildDate", ch.LastBuildDate)
+}
 
-	// itunes:author
-	if s := strings.TrimSpace(ch.ItunesAuthor); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:author"}}); err != nil {
-			return err
-		}
-	}
+func (ch *PSPChannel) encodeItunesAuthor(e *xml.Encoder) error {
+	return ch.encodeTextIfSet(e, "itunes:author", ch.ItunesAuthor)
+}
 
-	// itunes:explicit
-	if ch.ItunesExplicit != nil {
-		val := "false"
-		if *ch.ItunesExplicit {
-			val = "true"
-		}
-		if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
-			return err
-		}
+func (ch *PSPChannel) encodeItunesExplicit(e *xml.Encoder) error {
+	if ch.ItunesExplicit == nil {
+		return nil
 	}
-	// itunes:type
-	if s := strings.TrimSpace(ch.ItunesType); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:type"}}); err != nil {
-			return err
-		}
+	val := "false"
+	if *ch.ItunesExplicit {
+		val = "true"
 	}
-	// itunes:complete
+	return e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}})
+}
+
+func (ch *PSPChannel) encodeItunesType(e *xml.Encoder) error {
+	return ch.encodeTextIfSet(e, "itunes:type", ch.ItunesType)
+}
+
+func (ch *PSPChannel) encodeItunesComplete(e *xml.Encoder) error {
 	if ch.ItunesComplete {
-		if err := e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}}); err != nil {
-			return err
-		}
+		return e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}})
 	}
-	// podcast:locked
-	if ch.PodcastLocked != nil {
-		val := "no"
-		if *ch.PodcastLocked {
-			val = "yes"
-		}
-		if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}}); err != nil {
-			return err
-		}
-	}
-	// podcast:txt
-	if ch.PodcastTXT != nil {
-		if err := e.Encode(ch.PodcastTXT); err != nil {
-			return err
-		}
-	}
-	// podcast:funding
-	if ch.PodcastFunding != nil {
-		if err := e.Encode(ch.PodcastFunding); err != nil {
-			return err
-		}
-	}
+	return nil
+}
 
-	// items
+func (ch *PSPChannel) encodePodcastLocked(e *xml.Encoder) error {
+	if ch.PodcastLocked == nil {
+		return nil
+	}
+	val := "no"
+	if *ch.PodcastLocked {
+		val = "yes"
+	}
+	return e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}})
+}
+
+func (ch *PSPChannel) encodePodcastTXT(e *xml.Encoder) error {
+	if ch.PodcastTXT != nil {
+		return e.Encode(ch.PodcastTXT)
+	}
+	return nil
+}
+
+func (ch *PSPChannel) encodePodcastFunding(e *xml.Encoder) error {
+	if ch.PodcastFunding != nil {
+		return e.Encode(ch.PodcastFunding)
+	}
+	return nil
+}
+
+func (ch *PSPChannel) encodeItems(e *xml.Encoder) error {
 	for _, it := range ch.Items {
 		if it == nil {
 			continue
@@ -204,19 +250,20 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	// itunes:image (override via ItunesImageHref if provided)
+func (ch *PSPChannel) encodeItunesImage(e *xml.Encoder) error {
 	if s := strings.TrimSpace(ch.ItunesImageHref); s != "" {
-		if err := e.Encode(&ItunesImage{Href: s}); err != nil {
-			return err
-		}
-	} else if ch.ItunesImage != nil && strings.TrimSpace(ch.ItunesImage.Href) != "" {
-		if err := e.Encode(ch.ItunesImage); err != nil {
-			return err
-		}
+		return e.Encode(&ItunesImage{Href: s})
 	}
+	if ch.ItunesImage != nil && strings.TrimSpace(ch.ItunesImage.Href) != "" {
+		return e.Encode(ch.ItunesImage)
+	}
+	return nil
+}
 
-	// itunes:category
+func (ch *PSPChannel) encodeItunesCategories(e *xml.Encoder) error {
 	for _, c := range ch.ItunesCategories {
 		if c == nil || strings.TrimSpace(c.Text) == "" {
 			continue
@@ -225,21 +272,16 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
+	return nil
+}
 
-	// extension nodes (including podcast:guid or other injected nodes)
-	if len(ch.Extra) > 0 {
-		for _, n := range ch.Extra {
-			if err := e.Encode(n); err != nil {
-				return err
-			}
+func (ch *PSPChannel) encodeExtensions(e *xml.Encoder) error {
+	for _, n := range ch.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
 		}
 	}
-
-	// Close <channel>
-	if err := e.EncodeToken(start.End()); err != nil {
-		return err
-	}
-	return e.Flush()
+	return nil
 }
 
 // PSPAtomLink emits atom:link
@@ -348,7 +390,13 @@ func (p *PSP) FeedXml() interface{} {
 ValidatePSP enforces PSP-1 required elements at channel and item levels using generic Feed/Item fields.
 */
 func ValidatePSP(f *Feed) error {
-	// Channel-level required (generic only)
+	if err := validatePSPChannel(f); err != nil {
+		return err
+	}
+	return validatePSPItems(f)
+}
+
+func validatePSPChannel(f *Feed) error {
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("psp: channel title required")
 	}
@@ -371,7 +419,10 @@ func ValidatePSP(f *Feed) error {
 	if strings.TrimSpace(f.FeedURL) == "" {
 		return errors.New("psp: atom:link rel=self required")
 	}
-	// Items
+	return nil
+}
+
+func validatePSPItems(f *Feed) error {
 	if len(f.Items) == 0 {
 		return errors.New("psp: at least one item required")
 	}
@@ -421,13 +472,25 @@ func (p *PSP) wrapRoot(ch *PSPChannel) *PSPRSSRoot {
 }
 
 func (p *PSP) buildChannel() *PSPChannel {
+	ch := deriveBasicChannel(p)
+	addAtomSelf(p, ch)
+	addItunesChannelFields(p, ch)
+	addPodcastGUID(p, ch)
+	addItems(p, ch)
+	mapChannelExtensions(p.Extensions, ch)
+	return ch
+}
+
+// Helpers to reduce cyclomatic complexity of buildChannel.
+
+func deriveBasicChannel(p *PSP) *PSPChannel {
 	pub := anyTimeFormat(time.RFC1123Z, p.Created, p.Updated)
 	build := anyTimeFormat(time.RFC1123Z, p.Updated)
 	linkHref := ""
 	if p.Link != nil {
 		linkHref = p.Link.Href
 	}
-	ch := &PSPChannel{
+	return &PSPChannel{
 		Title:         p.Title,
 		Description:   p.Description,
 		Link:          linkHref,
@@ -436,12 +499,15 @@ func (p *PSP) buildChannel() *PSPChannel {
 		PubDate:       pub,
 		LastBuildDate: build,
 	}
-	// atom:link rel="self"
+}
+
+func addAtomSelf(p *PSP, ch *PSPChannel) {
 	if strings.TrimSpace(p.FeedURL) != "" {
 		ch.AtomSelf = &PSPAtomLink{Href: p.FeedURL, Rel: "self", Type: "application/rss+xml"}
 	}
+}
 
-	// iTunes channel fields (from generic feed where available)
+func addItunesChannelFields(p *PSP, ch *PSPChannel) {
 	if p.Image != nil && strings.TrimSpace(p.Image.Url) != "" {
 		ch.ItunesImage = &ItunesImage{Href: p.Image.Url}
 	}
@@ -449,99 +515,131 @@ func (p *PSP) buildChannel() *PSPChannel {
 		ch.ItunesAuthor = p.Author.Name
 	}
 	ch.ItunesCategories = convertCategories(p.Categories)
+}
 
-	// podcast channel fields (limited by generic feed data)
+func addPodcastGUID(p *PSP, ch *PSPChannel) {
 	if strings.TrimSpace(p.ID) != "" {
 		// Use Feed.ID as podcast GUID when provided
 		ch.Extra = append(ch.Extra, ExtensionNode{Name: "podcast:guid", Text: p.ID})
 	} else if strings.TrimSpace(p.FeedURL) != "" {
 		ch.Extra = append(ch.Extra, ExtensionNode{Name: "podcast:guid", Text: computePodcastGuid(p.FeedURL)})
 	}
+}
 
-	// Items
+func addItems(p *PSP, ch *PSPChannel) {
 	for _, it := range p.Items {
 		ch.Items = append(ch.Items, p.buildItem(it))
 	}
+}
 
-	// Custom channel nodes (map known PSP/iTunes nodes to typed fields, keep others as Extra)
-	if len(p.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range p.Extensions {
-			name := strings.TrimSpace(strings.ToLower(n.Name))
-			switch name {
-			case "itunes:explicit":
-				t := strings.ToLower(strings.TrimSpace(n.Text))
-				switch t {
-				case "true":
-					v := true
-					ch.ItunesExplicit = &v
-				case "false":
-					v := false
-					ch.ItunesExplicit = &v
-				default:
-					extras = append(extras, n)
-				}
-			case "itunes:type":
-				t := strings.ToLower(strings.TrimSpace(n.Text))
-				if t == "episodic" || t == "serial" {
-					ch.ItunesType = t
-				} else {
-					extras = append(extras, n)
-				}
-			case "itunes:complete":
-				if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
-					ch.ItunesComplete = true
-				} else {
-					extras = append(extras, n)
-				}
-			case "itunes:image":
-				if n.Attrs != nil {
-					if href, ok := n.Attrs["href"]; ok && strings.TrimSpace(href) != "" {
-						ch.ItunesImageHref = strings.TrimSpace(href)
-						break
-					}
-				}
-				extras = append(extras, n)
-			case "podcast:locked":
-				t := strings.ToLower(strings.TrimSpace(n.Text))
-				if t == "yes" || t == "no" {
-					v := t == "yes"
-					ch.PodcastLocked = &v
-				} else {
-					extras = append(extras, n)
-				}
-			case "podcast:txt":
-				val := strings.TrimSpace(n.Text)
-				if val != "" {
-					pt := &PodcastTXT{Value: val}
-					if n.Attrs != nil {
-						if purpose, ok := n.Attrs["purpose"]; ok {
-							pt.Purpose = strings.TrimSpace(purpose)
-						}
-					}
-					ch.PodcastTXT = pt
-				} else {
-					extras = append(extras, n)
-				}
-			case "podcast:funding":
-				var href string
-				if n.Attrs != nil {
-					href = strings.TrimSpace(n.Attrs["url"])
-				}
-				if href != "" || strings.TrimSpace(n.Text) != "" {
-					ch.PodcastFunding = &PodcastFunding{Url: href, Text: n.Text}
-				} else {
-					extras = append(extras, n)
-				}
-			default:
-				extras = append(extras, n)
+type channelExtHandler func(*PSPChannel, ExtensionNode) bool
+
+func mapChannelExtensions(exts []ExtensionNode, ch *PSPChannel) {
+	if len(exts) == 0 {
+		return
+	}
+	handlers := map[string]channelExtHandler{
+		"itunes:explicit": handleExtItunesExplicit,
+		"itunes:type":     handleExtItunesType,
+		"itunes:complete": handleExtItunesComplete,
+		"itunes:image":    handleExtItunesImage,
+		"podcast:locked":  handleExtPodcastLocked,
+		"podcast:txt":     handleExtPodcastTXT,
+		"podcast:funding": handleExtPodcastFunding,
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(ch, n) {
+				continue
 			}
 		}
-		if len(extras) > 0 {
-			ch.Extra = append(ch.Extra, extras...)
+		extras = append(extras, n)
+	}
+	if len(extras) > 0 {
+		ch.Extra = append(ch.Extra, extras...)
+	}
+}
+
+func handleExtItunesExplicit(ch *PSPChannel, n ExtensionNode) bool {
+	t := strings.ToLower(strings.TrimSpace(n.Text))
+	switch t {
+	case "true":
+		v := true
+		ch.ItunesExplicit = &v
+		return true
+	case "false":
+		v := false
+		ch.ItunesExplicit = &v
+		return true
+	default:
+		return false
+	}
+}
+
+func handleExtItunesType(ch *PSPChannel, n ExtensionNode) bool {
+	t := strings.ToLower(strings.TrimSpace(n.Text))
+	if t == "episodic" || t == "serial" {
+		ch.ItunesType = t
+		return true
+	}
+	return false
+}
+
+func handleExtItunesComplete(ch *PSPChannel, n ExtensionNode) bool {
+	if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
+		ch.ItunesComplete = true
+		return true
+	}
+	return false
+}
+
+func handleExtItunesImage(ch *PSPChannel, n ExtensionNode) bool {
+	if n.Attrs != nil {
+		if href, ok := n.Attrs["href"]; ok && strings.TrimSpace(href) != "" {
+			ch.ItunesImageHref = strings.TrimSpace(href)
+			return true
 		}
 	}
-	return ch
+	return false
+}
+
+func handleExtPodcastLocked(ch *PSPChannel, n ExtensionNode) bool {
+	t := strings.ToLower(strings.TrimSpace(n.Text))
+	if t == "yes" || t == "no" {
+		v := t == "yes"
+		ch.PodcastLocked = &v
+		return true
+	}
+	return false
+}
+
+func handleExtPodcastTXT(ch *PSPChannel, n ExtensionNode) bool {
+	val := strings.TrimSpace(n.Text)
+	if val == "" {
+		return false
+	}
+	pt := &PodcastTXT{Value: val}
+	if n.Attrs != nil {
+		if purpose, ok := n.Attrs["purpose"]; ok {
+			pt.Purpose = strings.TrimSpace(purpose)
+		}
+	}
+	ch.PodcastTXT = pt
+	return true
+}
+
+func handleExtPodcastFunding(ch *PSPChannel, n ExtensionNode) bool {
+	var href string
+	if n.Attrs != nil {
+		href = strings.TrimSpace(n.Attrs["url"])
+	}
+	if href != "" || strings.TrimSpace(n.Text) != "" {
+		ch.PodcastFunding = &PodcastFunding{Url: href, Text: n.Text}
+		return true
+	}
+	return false
 }
 
 func (p *PSP) buildItem(it *Item) *PSPItem {

@@ -4,7 +4,6 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -97,13 +96,15 @@ func (a *AtomFeed) FeedXml() interface{} {
 	return a
 }
 
-func (a *Atom) AtomFeed() *AtomFeed {
+// Helpers to reduce cyclomatic complexity
+
+func atomFeedBaseFromFeed(a *Atom) *AtomFeed {
 	updated := anyTimeFormat(time.RFC3339, a.Updated, a.Created)
 	link := a.Link
 	if link == nil {
 		link = &Link{}
 	}
-	feed := &AtomFeed{
+	return &AtomFeed{
 		Xmlns:    atomNS,
 		Title:    a.Title,
 		Link:     &AtomLink{Href: link.Href, Rel: "alternate"},
@@ -112,225 +113,236 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		Updated:  updated,
 		Rights:   a.Copyright,
 	}
+}
 
-	// Map generic image to Atom logo/icon when available
-	if a.Image != nil && a.Image.Url != "" {
-		if feed.Logo == "" {
-			feed.Logo = a.Image.Url
-		}
-		if feed.Icon == "" {
-			feed.Icon = a.Image.Url
-		}
+func applyAtomImage(feed *AtomFeed, img *Image) {
+	if img == nil || img.Url == "" {
+		return
 	}
-
-	if a.Author != nil {
-		feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: a.Author.Name, Email: a.Author.Email}}
+	if feed.Logo == "" {
+		feed.Logo = img.Url
 	}
-
-	// Map generic categories: Atom uses only the first top-level category when present
-	if len(a.Categories) > 0 && a.Categories[0] != nil && a.Categories[0].Text != "" {
-		feed.Category = a.Categories[0].Text
+	if feed.Icon == "" {
+		feed.Icon = img.Url
 	}
+}
 
-	for _, e := range a.Items {
+func setAtomAuthorFromFeed(feed *AtomFeed, author *Author) {
+	if author == nil {
+		return
+	}
+	feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: author.Name, Email: author.Email}}
+}
+
+func setFirstCategory(feed *AtomFeed, cats []*Category) {
+	if len(cats) > 0 && cats[0] != nil && cats[0].Text != "" {
+		feed.Category = cats[0].Text
+	}
+}
+
+func addEntriesToFeed(feed *AtomFeed, items []*Item) {
+	for _, e := range items {
 		feed.Entries = append(feed.Entries, newAtomEntry(e))
 	}
+}
 
-	// Ensure Atom author requirement (RFC 4287 4.2.1):
-	// A feed must contain an author, unless all entries contain an author.
-	if feed.Author == nil {
-		allEntriesHaveAuthors := true
-		for _, it := range a.Items {
-			if it.Author == nil || (it.Author.Name == "" && it.Author.Email == "") {
-				allEntriesHaveAuthors = false
-				break
-			}
-		}
-		if !allEntriesHaveAuthors {
-			feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: "unknown"}}
+func ensureAtomAuthorRequirement(feed *AtomFeed, items []*Item) {
+	if feed.Author != nil {
+		return
+	}
+	allEntriesHaveAuthors := true
+	for _, it := range items {
+		if it.Author == nil || (it.Author.Name == "" && it.Author.Email == "") {
+			allEntriesHaveAuthors = false
+			break
 		}
 	}
+	if !allEntriesHaveAuthors {
+		feed.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: "unknown"}}
+	}
+}
 
-	// Custom channel/feed extensions: map known Atom helpers and keep others
-	if len(a.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range a.Extensions {
-			name := strings.TrimSpace(strings.ToLower(n.Name))
-			switch name {
-			case "_atom:icon":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.Icon = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:logo":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.Logo = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:rights":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					feed.Rights = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:contributor":
-				var ap AtomPerson
-				if n.Attrs != nil {
-					ap.Name = strings.TrimSpace(n.Attrs["name"])
-					ap.Email = strings.TrimSpace(n.Attrs["email"])
-					ap.Uri = strings.TrimSpace(n.Attrs["uri"])
-				}
-				if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
-					feed.Contributor = &AtomContributor{AtomPerson: ap}
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:link":
-				var l AtomLink
-				if n.Attrs != nil {
-					l.Href = strings.TrimSpace(n.Attrs["href"])
-					l.Rel = strings.TrimSpace(n.Attrs["rel"])
-					l.Type = strings.TrimSpace(n.Attrs["type"])
-					l.Length = strings.TrimSpace(n.Attrs["length"])
-				}
-				if l.Href != "" {
-					feed.Link = &l
-				} else {
-					extras = append(extras, n)
-				}
-			default:
+func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
+	if len(exts) == 0 {
+		return
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		switch name {
+		case "_atom:icon":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.Icon = s
+			} else {
 				extras = append(extras, n)
 			}
-		}
-		if len(extras) > 0 {
-			feed.Extra = append(feed.Extra, extras...)
+		case "_atom:logo":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.Logo = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:rights":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				feed.Rights = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:contributor":
+			var ap AtomPerson
+			if n.Attrs != nil {
+				ap.Name = strings.TrimSpace(n.Attrs["name"])
+				ap.Email = strings.TrimSpace(n.Attrs["email"])
+				ap.Uri = strings.TrimSpace(n.Attrs["uri"])
+			}
+			if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
+				feed.Contributor = &AtomContributor{AtomPerson: ap}
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:link":
+			var l AtomLink
+			if n.Attrs != nil {
+				l.Href = strings.TrimSpace(n.Attrs["href"])
+				l.Rel = strings.TrimSpace(n.Attrs["rel"])
+				l.Type = strings.TrimSpace(n.Attrs["type"])
+				l.Length = strings.TrimSpace(n.Attrs["length"])
+			}
+			if l.Href != "" {
+				feed.Link = &l
+			} else {
+				extras = append(extras, n)
+			}
+		default:
+			extras = append(extras, n)
 		}
 	}
+	if len(extras) > 0 {
+		feed.Extra = append(feed.Extra, extras...)
+	}
+}
+
+func (a *Atom) AtomFeed() *AtomFeed {
+	feed := atomFeedBaseFromFeed(a)
+	applyAtomImage(feed, a.Image)
+	setAtomAuthorFromFeed(feed, a.Author)
+	setFirstCategory(feed, a.Categories)
+	addEntriesToFeed(feed, a.Items)
+	ensureAtomAuthorRequirement(feed, a.Items)
+	mapAtomFeedExtensions(feed, a.Extensions)
 	return feed
 }
 
-func newAtomEntry(i *Item) *AtomEntry {
-	id := i.ID
+func atomEntryBase(i *Item) *AtomEntry {
+	id := strings.TrimSpace(i.ID)
+	if id == "" {
+		id = fallbackItemGuid(i)
+	}
 	link := i.Link
 	if link == nil {
 		link = &Link{}
 	}
-	if len(id) == 0 {
-		// Create a tag URI if we have a URL and any timestamp, else fallback to UUID URN
-		if len(link.Href) > 0 && (!i.Created.IsZero() || !i.Updated.IsZero()) {
-			dateStr := anyTimeFormat("2006-01-02", i.Updated, i.Created)
-			host, path := link.Href, "/"
-			if u, err := url.Parse(link.Href); err == nil {
-				host, path = u.Host, u.Path
-			}
-			id = fmt.Sprintf("tag:%s,%s:%s", host, dateStr, path)
-		} else {
-			id = "urn:uuid:" + MustUUIDv4().String()
-		}
-	}
-
-	var name, email string
-	if i.Author != nil {
-		name, email = i.Author.Name, i.Author.Email
-	}
-
-	linkRel := "alternate"
 	x := &AtomEntry{
 		Title:   i.Title,
-		Links:   []AtomLink{{Href: link.Href, Rel: linkRel}},
+		Links:   []AtomLink{{Href: link.Href, Rel: "alternate"}},
 		Id:      id,
 		Updated: anyTimeFormat(time.RFC3339, i.Updated, i.Created),
+		Xmlns:   atomNS,
 	}
-	x.Xmlns = atomNS
-
 	// Published maps to item Created timestamp when available
 	if !i.Created.IsZero() {
 		x.Published = i.Created.Format(time.RFC3339)
 	}
-
 	// Summary from description (assume html)
 	if len(i.Description) > 0 {
 		x.Summary = &AtomSummary{Content: i.Description, Type: "html"}
 	}
-
 	// Content as HTML
 	if len(i.Content) > 0 {
 		x.Content = &AtomContent{Content: i.Content, Type: "html"}
 	}
+	// Author
+	if i.Author != nil && (i.Author.Name != "" || i.Author.Email != "") {
+		x.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: i.Author.Name, Email: i.Author.Email}}
+	}
+	return x
+}
 
-	// Enclosure if present and not already the main link
-	if i.Enclosure != nil && linkRel != "enclosure" {
+func addEnclosureAndRelatedLinks(x *AtomEntry, i *Item) {
+	// Enclosure if present
+	if i.Enclosure != nil {
 		x.Links = append(x.Links, AtomLink{Href: i.Enclosure.Url, Rel: "enclosure", Type: i.Enclosure.Type, Length: ""})
 	}
-
 	// Related/source link if provided
 	if i.Source != nil && i.Source.Href != "" {
 		x.Links = append(x.Links, AtomLink{Href: i.Source.Href, Rel: "related"})
 	}
+}
 
-	if len(name) > 0 || len(email) > 0 {
-		x.Author = &AtomAuthor{AtomPerson: AtomPerson{Name: name, Email: email}}
+func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
+	if len(exts) == 0 {
+		return
 	}
-
-	// Custom item/entry extensions: map known Atom helpers and keep others
-	if len(i.Extensions) > 0 {
-		var extras []ExtensionNode
-		for _, n := range i.Extensions {
-			name := strings.TrimSpace(strings.ToLower(n.Name))
-			switch name {
-			case "_atom:category":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					x.Category = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:rights":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					x.Rights = s
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:contributor":
-				var ap AtomPerson
-				if n.Attrs != nil {
-					ap.Name = strings.TrimSpace(n.Attrs["name"])
-					ap.Email = strings.TrimSpace(n.Attrs["email"])
-					ap.Uri = strings.TrimSpace(n.Attrs["uri"])
-				}
-				if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
-					x.Contributor = &AtomContributor{AtomPerson: ap}
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:link":
-				var l AtomLink
-				if n.Attrs != nil {
-					l.Href = strings.TrimSpace(n.Attrs["href"])
-					l.Rel = strings.TrimSpace(n.Attrs["rel"])
-					l.Type = strings.TrimSpace(n.Attrs["type"])
-					l.Length = strings.TrimSpace(n.Attrs["length"])
-				}
-				if l.Href != "" {
-					x.Links = append(x.Links, l)
-				} else {
-					extras = append(extras, n)
-				}
-			case "_atom:source":
-				if s := strings.TrimSpace(n.Text); s != "" {
-					x.Source = s
-				} else {
-					extras = append(extras, n)
-				}
-			default:
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		switch name {
+		case "_atom:category":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				x.Category = s
+			} else {
 				extras = append(extras, n)
 			}
-		}
-		if len(extras) > 0 {
-			x.Extra = append(x.Extra, extras...)
+		case "_atom:rights":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				x.Rights = s
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:contributor":
+			var ap AtomPerson
+			if n.Attrs != nil {
+				ap.Name = strings.TrimSpace(n.Attrs["name"])
+				ap.Email = strings.TrimSpace(n.Attrs["email"])
+				ap.Uri = strings.TrimSpace(n.Attrs["uri"])
+			}
+			if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
+				x.Contributor = &AtomContributor{AtomPerson: ap}
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:link":
+			var l AtomLink
+			if n.Attrs != nil {
+				l.Href = strings.TrimSpace(n.Attrs["href"])
+				l.Rel = strings.TrimSpace(n.Attrs["rel"])
+				l.Type = strings.TrimSpace(n.Attrs["type"])
+				l.Length = strings.TrimSpace(n.Attrs["length"])
+			}
+			if l.Href != "" {
+				x.Links = append(x.Links, l)
+			} else {
+				extras = append(extras, n)
+			}
+		case "_atom:source":
+			if s := strings.TrimSpace(n.Text); s != "" {
+				x.Source = s
+			} else {
+				extras = append(extras, n)
+			}
+		default:
+			extras = append(extras, n)
 		}
 	}
+	if len(extras) > 0 {
+		x.Extra = append(x.Extra, extras...)
+	}
+}
+
+func newAtomEntry(i *Item) *AtomEntry {
+	x := atomEntryBase(i)
+	addEnclosureAndRelatedLinks(x, i)
+	mapAtomEntryExtensions(x, i.Extensions)
 	return x
 }
 

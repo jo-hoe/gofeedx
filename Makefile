@@ -11,4 +11,4 @@ test: ## run go tests with coverage
 
 .PHONY: lint
 lint: ## run linters
-	golangci-lint run --path-prefix $(ROOT_DIR)
+	golangci-lint run --path-prefix $(ROOT_DIR) -E gocyclo
