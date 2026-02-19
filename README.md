@@ -153,7 +153,3 @@ func main() {
 - Atom entry IDs are generated as `tag:host,date:path` when not provided and sufficient link/date context exists; otherwise a random UUID URN is used.
 - JSON Feed version 1.1 is produced; a single author maps to authors[0].
 - PSP-1 podcast:guid is generated via UUID v5 using the feed URL (scheme removed, trailing slashes trimmed) with namespace `ead4c236-bf58-58c6-a2c6-a6b28d128cb6` when Feed.ID is empty.
-
-## License
-
-MIT
