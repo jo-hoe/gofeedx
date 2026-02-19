@@ -307,80 +307,10 @@ This avoids stringly-typed public usage while keeping code colocated in rss.go.
 */
 
 // RSSChannelFields holds channel-level RSS fields for unified builder.
-type RSSChannelFields struct {
-	ImageWidth  int
-	ImageHeight int
-	TTL         int
-	Category    string // overrides channel category
-}
 
 // WithRSSChannel returns an ExtOption to set RSS channel fields.
 // Internally stores markers consumed by the RSS encoder.
-func WithRSSChannel(fields RSSChannelFields) ExtOption {
-	var nodes []ExtensionNode
-	if fields.ImageWidth > 0 || fields.ImageHeight > 0 {
-		attrs := map[string]string{}
-		if fields.ImageWidth > 0 {
-			attrs["width"] = strconv.Itoa(fields.ImageWidth)
-		}
-		if fields.ImageHeight > 0 {
-			attrs["height"] = strconv.Itoa(fields.ImageHeight)
-		}
-		nodes = append(nodes, ExtensionNode{Name: "_rss:imageSize", Attrs: attrs})
-	}
-	if fields.TTL > 0 {
-		nodes = append(nodes, ExtensionNode{Name: "_rss:ttl", Text: strconv.Itoa(fields.TTL)})
-	}
-	if s := strings.TrimSpace(fields.Category); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "_rss:category", Text: s})
-	}
-	return newFeedNodes(nodes...)
-}
 
 // WithRSSFeedExtension returns an ExtOption to append RSS channel-level nodes.
-func WithRSSFeedExtension(fields RssFeedExtension) ExtOption {
-	var nodes []ExtensionNode
-	if s := strings.TrimSpace(fields.WebMaster); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "webMaster", Text: s})
-	}
-	if s := strings.TrimSpace(fields.Generator); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "generator", Text: s})
-	}
-	if s := strings.TrimSpace(fields.Docs); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "docs", Text: s})
-	}
-	if s := strings.TrimSpace(fields.Cloud); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "cloud", Text: s})
-	}
-	if fields.Ttl > 0 {
-		nodes = append(nodes, ExtensionNode{Name: "ttl", Text: strconv.Itoa(fields.Ttl)})
-	}
-	if s := strings.TrimSpace(fields.Rating); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "rating", Text: s})
-	}
-	if s := strings.TrimSpace(fields.SkipHours); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "skipHours", Text: s})
-	}
-	if s := strings.TrimSpace(fields.SkipDays); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "skipDays", Text: s})
-	}
-	if len(fields.Extra) > 0 {
-		nodes = append(nodes, fields.Extra...)
-	}
-	return newFeedNodes(nodes...)
-}
 
 // WithRSSItemExtension returns an ExtOption to append RSS item-level nodes.
-func WithRSSItemExtension(fields RssItemExtension) ExtOption {
-	var nodes []ExtensionNode
-	if s := strings.TrimSpace(fields.Category); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "category", Text: s})
-	}
-	if s := strings.TrimSpace(fields.Comments); s != "" {
-		nodes = append(nodes, ExtensionNode{Name: "comments", Text: s})
-	}
-	if len(fields.Extra) > 0 {
-		nodes = append(nodes, fields.Extra...)
-	}
-	return newItemNodes(nodes...)
-}

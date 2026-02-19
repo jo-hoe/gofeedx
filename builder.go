@@ -138,17 +138,15 @@ func (b *FeedBuilder) WithCategories(categories ...string) *FeedBuilder {
 	return b
 }
 
-// ApplyExtensions appends extension options at feed/channel scope.
-func (b *FeedBuilder) ApplyExtensions(opts ...ExtOption) *FeedBuilder {
-	if len(opts) == 0 {
+/*
+WithExtensions appends raw extension nodes at feed/channel scope.
+This is the single way to add target-specific elements using the builder.
+*/
+func (b *FeedBuilder) WithExtensions(nodes ...ExtensionNode) *FeedBuilder {
+	if len(nodes) == 0 {
 		return b
 	}
-	for _, o := range opts {
-		if o == nil {
-			continue
-		}
-		b.feed.Extensions = append(b.feed.Extensions, o.feedNodes()...)
-	}
+	b.feed.Extensions = append(b.feed.Extensions, nodes...)
 	return b
 }
 
@@ -437,17 +435,15 @@ func (b *ItemBuilder) WithDurationSeconds(sec int) *ItemBuilder {
 	return b
 }
 
-// ApplyExtensions appends extension options at item/entry scope.
-func (b *ItemBuilder) ApplyExtensions(opts ...ExtOption) *ItemBuilder {
-	if len(opts) == 0 {
+/*
+WithExtensions appends raw extension nodes at item/entry scope.
+This is the single way to add target-specific elements using the builder.
+*/
+func (b *ItemBuilder) WithExtensions(nodes ...ExtensionNode) *ItemBuilder {
+	if len(nodes) == 0 {
 		return b
 	}
-	for _, o := range opts {
-		if o == nil {
-			continue
-		}
-		b.item.Extensions = append(b.item.Extensions, o.itemNodes()...)
-	}
+	b.item.Extensions = append(b.item.Extensions, nodes...)
 	return b
 }
 
