@@ -183,6 +183,133 @@ func (b *FeedBuilder) WithSort(less func(a, b *Item) bool) *FeedBuilder {
 	return b
 }
 
+/*
+Typed sorting for items.
+
+Define the attribute to sort by using ItemSortField and the direction using SortDir.
+Avoids stringly-typed APIs and provides compile-time safety.
+*/
+type ItemSortField int
+
+const (
+	SortByTitle ItemSortField = iota
+	SortByID
+	SortByCreated
+	SortByUpdated
+	SortByDuration
+	SortByAuthorName
+)
+
+type SortDir int
+
+const (
+	SortAsc SortDir = iota
+	SortDesc
+)
+
+/*
+WithSortBy sorts items by a typed attribute and direction.
+Supported fields: SortByTitle, SortByID, SortByCreated, SortByUpdated, SortByDuration, SortByAuthorName.
+Call before Build().
+*/
+func (b *FeedBuilder) WithSortBy(field ItemSortField, dir SortDir) *FeedBuilder {
+	asc := dir != SortDesc
+
+	less := func(a, b *Item) bool {
+		switch field {
+		case SortByTitle:
+			return stringLessCI(a.Title, b.Title, asc)
+		case SortByID:
+			return stringLessCI(a.ID, b.ID, asc)
+		case SortByCreated:
+			return timeLess(a.Created, b.Created, asc)
+		case SortByUpdated:
+			return timeLess(a.Updated, b.Updated, asc)
+		case SortByDuration:
+			return int64Less(int64(a.DurationSeconds), int64(b.DurationSeconds), asc)
+		case SortByAuthorName:
+			return stringLessCI(getAuthorName(a.Author), getAuthorName(b.Author), asc)
+		default:
+			// Fallback to created date
+			return timeLess(a.Created, b.Created, asc)
+		}
+	}
+	return b.WithSort(less)
+}
+
+// Helpers for typed sorting
+
+func stringLessCI(a, b string, asc bool) bool {
+	aa := strings.ToLower(a)
+	bb := strings.ToLower(b)
+	if asc {
+		return aa < bb
+	}
+	return aa > bb
+}
+
+func int64Less(a, b int64, asc bool) bool {
+	if asc {
+		return a < b
+	}
+	return a > b
+}
+
+func timeLess(a, b time.Time, asc bool) bool {
+	if asc {
+		if a.Equal(b) {
+			return false
+		}
+		return a.Before(b)
+	}
+	if a.Equal(b) {
+		return false
+	}
+	return a.After(b)
+}
+
+func getLinkHref(l *Link) string {
+	if l == nil {
+		return ""
+	}
+	return l.Href
+}
+
+func getAuthorName(a *Author) string {
+	if a == nil {
+		return ""
+	}
+	return a.Name
+}
+
+func getAuthorEmail(a *Author) string {
+	if a == nil {
+		return ""
+	}
+	return a.Email
+}
+
+func getEnclosureLength(e *Enclosure) int64 {
+	if e == nil {
+		return 0
+	}
+	return e.Length
+}
+
+func getEnclosureType(e *Enclosure) string {
+	if e == nil {
+		return ""
+	}
+	return e.Type
+}
+
+func getEnclosureURL(e *Enclosure) string {
+	if e == nil {
+		return ""
+	}
+	return e.Url
+}
+
 // Build assembles the Feed and validates against selected profiles.
 // It also performs minimal defaulting to reduce target-specific failures:
 // - For Atom profile: if Updated is zero, use max(items.Updated/Created)
