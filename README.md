@@ -102,27 +102,7 @@ func main() {
 }
 ```
 
-## API overview
-
-- Build canonical feeds/items (single way to construct):
-  - FeedBuilder: NewFeed("Title"), WithLink(...), WithFeedURL(...), WithLanguage(...), WithImage(...), WithCategories(...), WithDescription(...), WithAuthor(...), WithCreated/WithUpdated, AddItem(...), WithExtensions(...ExtensionNode), WithSort(...); PSP helpers: WithPSPExplicit(bool), WithPSPFunding(url, label), WithPSPLocked(bool), WithPSPTXT(value, purpose), WithPSPItunesType("episodic"/"serial"), WithPSPItunesComplete(bool), WithPSPImageHref(href)
-  - ItemBuilder: NewItem("Title"), WithLink(...), WithDescription(...), WithContentHTML(...), WithSource(...), WithAuthor(...), WithCreated/WithUpdated, WithEnclosure(url, lengthBytes, mime), WithDurationSeconds(int), WithID/WithGUID, WithExtensions(...ExtensionNode); PSP helpers: WithPSPExplicit(bool), WithPSPTranscript(url, type, language, rel)
-  - Build() returns a canonical *Feed. You may optionally pass profiles with WithProfiles(...) before Build to run validations as part of build (ProfileRSS/Atom/PSP/JSON).
-
-- Convert to target formats:
-  - ToRSS(*Feed) (string, error)
-  - ToAtom(*Feed) (string, error)
-  - ToPSP(*Feed) (string, error) // PSP-1-compliant RSS with iTunes/podcast namespaces
-  - ToJSON(*Feed) (string, error) // JSON Feed 1.1
-
-- Validate before writing when you want strict conformance checks:
-  - ValidateRSS(*Feed) error
-  - ValidateAtom(*Feed) error
-  - ValidatePSP(*Feed) error
-  - ValidateJSON(*Feed) error
-Use these to catch issues early before writing. Builders can also run validations during Build() when you set WithProfiles(...).
-
-Namespaces and format notes
+## Namespaces and format notes
 
 - RSS: the content namespace (<http://purl.org/rss/1.0/modules/content/>) is declared only if content:encoded is used.
 - Atom: xmlns is set to <http://www.w3.org/2005/Atom> on the feed root element.
