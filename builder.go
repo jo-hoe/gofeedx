@@ -501,51 +501,6 @@ func ToJSON(feed *Feed) (string, error) {
 	return j.ToJSONString()
 }
 
-// BuildExamples returns short usage examples for the new builder API.
-func BuildExamples() string {
-	return `
-Example: Build PSP-1 feed and render
-  feed, err := NewFeed("My Podcast").
-    WithDescription("Short show description").
-    WithLink("https://example.com").
-    WithFeedURL("https://example.com/feed.xml").
-    WithLanguage("en-US").
-    WithImage("https://example.com/art.png", "My Podcast", "https://example.com").
-    WithCategories("Technology").
-    WithProfiles(ProfilePSP).
-    AddItem(
-      NewItem("Episode 1").
-        WithID("urn:uuid:...").
-        WithLink("https://example.com/e1").
-        WithDescription("Welcome").
-        WithCreated(time.Now()).
-        WithEnclosure("https://cdn.example.com/e1.mp3", 12345678, "audio/mpeg").
-        WithDurationSeconds(3600),
-    ).
-    Build()
-  if err != nil { panic(err) }
-  out, err := ToPSP(feed)
-  if err != nil { panic(err) }
-  fmt.Println(out)
-
-Example: Build Atom feed
-  feed, _ := NewFeed("News").
-    WithID("urn:uuid:...").
-    WithLink("https://news.example.com").
-    WithDescription("Latest posts").
-    WithProfiles(ProfileAtom).
-    AddItem(
-      NewItem("Post A").
-        WithLink("https://news.example.com/a").
-        WithDescription("Summary").
-        WithUpdated(time.Now()),
-    ).
-    Build()
-  xml, _ := ToAtom(feed)
-  _ = xml
-`
-}
-
 // String returns a short printable representation of the builder (for debugging).
 func (b *FeedBuilder) String() string {
 	return fmt.Sprintf("&FeedBuilder{Title:%q, Items:%d, Strict:%v, Profiles:%v}", b.feed.Title, len(b.items), b.strict, b.profiles)

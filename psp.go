@@ -562,17 +562,3 @@ func fallbackItemGuid(i *Item) string {
 	}
 	return "urn:uuid:" + MustUUIDv4().String()
 }
-
-/*
-Unified typed builders for PSP/iTunes fields.
-
-Users can attach channel-level and item-level PSP/iTunes fields via ExtOption without
-manually constructing stringly-typed nodes. These helpers produce proper namespaced
-ExtensionNode values and apply at the correct scope.
-*/
-
-// WithPSPChannel returns an ExtOption to append PSP/iTunes channel nodes.
-
-// PSPItemFields holds item-level PSP/iTunes fields for unified builder.
-
-// WithPSPItem returns an ExtOption to append PSP/iTunes item nodes.
