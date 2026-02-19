@@ -1,10 +1,10 @@
 package gofeedx
 
- // PSP-1: The Podcast RSS Standard encoder.
- // Emits RSS 2.0 with required namespaces and enforces required PSP elements.
- //
- // see https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification
- // and https://podcast-standard.org/podcast_standard/
+// PSP-1: The Podcast RSS Standard encoder.
+// Emits RSS 2.0 with required namespaces and enforces required PSP elements.
+//
+// see https://github.com/Podcast-Standards-Project/PSP-1-Podcast-RSS-Specification
+// and https://podcast-standard.org/podcast_standard/
 
 import (
 	"encoding/xml"
@@ -55,7 +55,7 @@ type PSPRSSRoot struct {
 	Channel   *PSPChannel `xml:"channel"`
 }
 
- // PSPChannel is the RSS channel with PSP/iTunes extensions.
+// PSPChannel is the RSS channel with PSP/iTunes extensions.
 type PSPChannel struct {
 	*PSPChannelExtension
 	Title            string `xml:"title"`       // required
@@ -130,6 +130,54 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 
+	// PSP/iTunes channel extension typed fields
+	if ch.PSPChannelExtension != nil {
+		// itunes:explicit
+		if ch.ItunesExplicit != nil {
+			val := "false"
+			if *ch.ItunesExplicit {
+				val = "true"
+			}
+			if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
+				return err
+			}
+		}
+		// itunes:type
+		if s := strings.TrimSpace(ch.ItunesType); s != "" {
+			if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:type"}}); err != nil {
+				return err
+			}
+		}
+		// itunes:complete
+		if ch.ItunesComplete {
+			if err := e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}}); err != nil {
+				return err
+			}
+		}
+		// podcast:locked
+		if ch.PodcastLocked != nil {
+			val := "no"
+			if *ch.PodcastLocked {
+				val = "yes"
+			}
+			if err := e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}}); err != nil {
+				return err
+			}
+		}
+		// podcast:txt
+		if ch.PodcastTXT != nil {
+			if err := e.Encode(ch.PodcastTXT); err != nil {
+				return err
+			}
+		}
+		// podcast:funding
+		if ch.PodcastFunding != nil {
+			if err := e.Encode(ch.PodcastFunding); err != nil {
+				return err
+			}
+		}
+	}
+
 	// items
 	for _, it := range ch.Items {
 		if it == nil {
@@ -140,8 +188,12 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 
-	// itunes:image
-	if ch.ItunesImage != nil && strings.TrimSpace(ch.ItunesImage.Href) != "" {
+	// itunes:image (override via ItunesImageHref if provided)
+	if s := strings.TrimSpace(ch.ItunesImageHref); s != "" {
+		if err := e.Encode(&ItunesImage{Href: s}); err != nil {
+			return err
+		}
+	} else if ch.ItunesImage != nil && strings.TrimSpace(ch.ItunesImage.Href) != "" {
 		if err := e.Encode(ch.ItunesImage); err != nil {
 			return err
 		}
@@ -293,17 +345,13 @@ type PSPItemExtension struct {
 	Extra []ExtensionNode `xml:",any"`
 }
 
-
 // PSP is a wrapper to marshal a Feed as PSP-1 RSS with required namespaces.
 type PSP struct {
 	*Feed
 }
 
-
-
-
- // FeedXml returns an XML-Ready object for a PSP wrapper.
- func (p *PSP) FeedXml() interface{} {
+// FeedXml returns an XML-Ready object for a PSP wrapper.
+func (p *PSP) FeedXml() interface{} {
 	return p.wrapRoot(p.buildChannel())
 }
 
@@ -428,9 +476,83 @@ func (p *PSP) buildChannel() *PSPChannel {
 		ch.Items = append(ch.Items, p.buildItem(it))
 	}
 
-	// Custom channel nodes
+	// Custom channel nodes (map known PSP/iTunes nodes to typed fields, keep others as Extra)
 	if len(p.Extensions) > 0 {
-		ch.Extra = append(ch.Extra, p.Extensions...)
+		var extras []ExtensionNode
+		for _, n := range p.Extensions {
+			name := strings.TrimSpace(strings.ToLower(n.Name))
+			switch name {
+			case "itunes:explicit":
+				t := strings.ToLower(strings.TrimSpace(n.Text))
+				switch t {
+				case "true":
+					v := true
+					ch.ItunesExplicit = &v
+				case "false":
+					v := false
+					ch.ItunesExplicit = &v
+				default:
+					extras = append(extras, n)
+				}
+			case "itunes:type":
+				t := strings.ToLower(strings.TrimSpace(n.Text))
+				if t == "episodic" || t == "serial" {
+					ch.ItunesType = t
+				} else {
+					extras = append(extras, n)
+				}
+			case "itunes:complete":
+				if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
+					ch.ItunesComplete = true
+				} else {
+					extras = append(extras, n)
+				}
+			case "itunes:image":
+				if n.Attrs != nil {
+					if href, ok := n.Attrs["href"]; ok && strings.TrimSpace(href) != "" {
+						ch.ItunesImageHref = strings.TrimSpace(href)
+						break
+					}
+				}
+				extras = append(extras, n)
+			case "podcast:locked":
+				t := strings.ToLower(strings.TrimSpace(n.Text))
+				if t == "yes" || t == "no" {
+					v := t == "yes"
+					ch.PodcastLocked = &v
+				} else {
+					extras = append(extras, n)
+				}
+			case "podcast:txt":
+				val := strings.TrimSpace(n.Text)
+				if val != "" {
+					pt := &PodcastTXT{Value: val}
+					if n.Attrs != nil {
+						if purpose, ok := n.Attrs["purpose"]; ok {
+							pt.Purpose = strings.TrimSpace(purpose)
+						}
+					}
+					ch.PodcastTXT = pt
+				} else {
+					extras = append(extras, n)
+				}
+			case "podcast:funding":
+				var href string
+				if n.Attrs != nil {
+					href = strings.TrimSpace(n.Attrs["url"])
+				}
+				if href != "" || strings.TrimSpace(n.Text) != "" {
+					ch.PodcastFunding = &PodcastFunding{Url: href, Text: n.Text}
+				} else {
+					extras = append(extras, n)
+				}
+			default:
+				extras = append(extras, n)
+			}
+		}
+		if len(extras) > 0 {
+			ch.Extra = append(ch.Extra, extras...)
+		}
 	}
 	return ch
 }
@@ -524,4 +646,115 @@ func fallbackItemGuid(i *Item) string {
 		return fmt.Sprintf("tag:%s,%s:%s", host, dateStr, path)
 	}
 	return "urn:uuid:" + MustUUIDv4().String()
+}
+
+// PSP-specific builder helpers implemented here to avoid adding target-specific code
+// to generic files (feed.go, builder.go). These methods wrap WithExtensions to emit
+// the correct PSP/iTunes namespace elements when rendering PSP.
+// Feed-level helpers:
+
+// WithPSPExplicit sets itunes:explicit at channel scope ("true"/"false").
+func (b *FeedBuilder) WithPSPExplicit(explicit bool) *FeedBuilder {
+	text := "false"
+	if explicit {
+		text = "true"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:explicit", Text: text})
+}
+
+// WithPSPFunding sets podcast:funding at channel scope with url attr and label text.
+func (b *FeedBuilder) WithPSPFunding(url, label string) *FeedBuilder {
+	url = strings.TrimSpace(url)
+	label = strings.TrimSpace(label)
+	if url == "" && label == "" {
+		return b
+	}
+	attrs := map[string]string{}
+	if url != "" {
+		attrs["url"] = url
+	}
+	return b.WithExtensions(ExtensionNode{Name: "podcast:funding", Attrs: attrs, Text: label})
+}
+
+// WithPSPLocked sets podcast:locked ("yes"/"no") at channel scope.
+func (b *FeedBuilder) WithPSPLocked(locked bool) *FeedBuilder {
+	val := "no"
+	if locked {
+		val = "yes"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "podcast:locked", Text: val})
+}
+
+// WithPSPTXT sets podcast:txt at channel scope with optional purpose attr.
+func (b *FeedBuilder) WithPSPTXT(value, purpose string) *FeedBuilder {
+	value = strings.TrimSpace(value)
+	purpose = strings.TrimSpace(purpose)
+	if value == "" {
+		return b
+	}
+	attrs := map[string]string{}
+	if purpose != "" {
+		attrs["purpose"] = purpose
+	}
+	return b.WithExtensions(ExtensionNode{Name: "podcast:txt", Attrs: attrs, Text: value})
+}
+
+// WithPSPItunesType sets itunes:type ("episodic" or "serial") at channel scope.
+func (b *FeedBuilder) WithPSPItunesType(t string) *FeedBuilder {
+	t = strings.TrimSpace(strings.ToLower(t))
+	switch t {
+	case "episodic", "serial":
+		return b.WithExtensions(ExtensionNode{Name: "itunes:type", Text: t})
+	default:
+		// ignore invalid types
+		return b
+	}
+}
+
+// WithPSPItunesComplete sets itunes:complete ("yes") at channel scope when complete is true.
+func (b *FeedBuilder) WithPSPItunesComplete(complete bool) *FeedBuilder {
+	if !complete {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:complete", Text: "yes"})
+}
+
+// WithPSPImageHref sets/overrides itunes:image@href at channel scope.
+func (b *FeedBuilder) WithPSPImageHref(href string) *FeedBuilder {
+	href = strings.TrimSpace(href)
+	if href == "" {
+		return b
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:image", Attrs: map[string]string{"href": href}})
+}
+
+// Item-level helpers:
+
+// WithPSPExplicit sets itunes:explicit at item scope ("true"/"false").
+func (b *ItemBuilder) WithPSPExplicit(explicit bool) *ItemBuilder {
+	text := "false"
+	if explicit {
+		text = "true"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "itunes:explicit", Text: text})
+}
+
+// WithPSPTranscript adds a podcast:transcript node at item scope.
+func (b *ItemBuilder) WithPSPTranscript(url, typ, language, rel string) *ItemBuilder {
+	url = strings.TrimSpace(url)
+	typ = strings.TrimSpace(typ)
+	if url == "" || typ == "" {
+		return b
+	}
+	attrs := map[string]string{
+		"url":  url,
+		"type": typ,
+	}
+	if s := strings.TrimSpace(language); s != "" {
+		attrs["language"] = s
+	}
+	if s := strings.TrimSpace(rel); s != "" {
+		attrs["rel"] = s
+	}
+	return b.WithExtensions(ExtensionNode{Name: "podcast:transcript", Attrs: attrs})
 }

@@ -86,13 +86,10 @@ func main() {
     WithEnclosure("https://cdn.example.com/audio/ep1.mp3", 12345678, "audio/mpeg").
     WithDurationSeconds(1801),
   ).
-  // Add target-specific elements when needed using extensions
-  WithExtensions(
-   // Example: iTunes explicit flag at channel scope
-   gofeedx.ExtensionNode{Name: "itunes:explicit", Text: "true"},
-   // Example: podcast:funding at channel scope
-   gofeedx.ExtensionNode{Name: "podcast:funding", Attrs: map[string]string{"url": "https://example.com/support"}, Text: "Support Us"},
-  ).Build()
+  // PSP-specific convenience methods for common fields
+  WithPSPExplicit(true).
+  WithPSPFunding("https://example.com/support", "Support Us").
+  Build()
   
  if err != nil {
   panic(err)
@@ -108,8 +105,8 @@ func main() {
 ## API overview
 
 - Build canonical feeds/items (single way to construct):
-  - FeedBuilder: NewFeed("Title"), WithLink(...), WithFeedURL(...), WithLanguage(...), WithImage(...), WithCategories(...), WithDescription(...), WithAuthor(...), WithCreated/WithUpdated, AddItem(...), WithExtensions(...ExtensionNode), WithSort(...)
-  - ItemBuilder: NewItem("Title"), WithLink(...), WithDescription(...), WithContentHTML(...), WithSource(...), WithAuthor(...), WithCreated/WithUpdated, WithEnclosure(url, lengthBytes, mime), WithDurationSeconds(int), WithID/WithGUID, WithExtensions(...ExtensionNode)
+  - FeedBuilder: NewFeed("Title"), WithLink(...), WithFeedURL(...), WithLanguage(...), WithImage(...), WithCategories(...), WithDescription(...), WithAuthor(...), WithCreated/WithUpdated, AddItem(...), WithExtensions(...ExtensionNode), WithSort(...); PSP helpers: WithPSPExplicit(bool), WithPSPFunding(url, label), WithPSPLocked(bool), WithPSPTXT(value, purpose), WithPSPItunesType("episodic"/"serial"), WithPSPItunesComplete(bool), WithPSPImageHref(href)
+  - ItemBuilder: NewItem("Title"), WithLink(...), WithDescription(...), WithContentHTML(...), WithSource(...), WithAuthor(...), WithCreated/WithUpdated, WithEnclosure(url, lengthBytes, mime), WithDurationSeconds(int), WithID/WithGUID, WithExtensions(...ExtensionNode); PSP helpers: WithPSPExplicit(bool), WithPSPTranscript(url, type, language, rel)
   - Build() returns a canonical *Feed. You may optionally pass profiles with WithProfiles(...) before Build to run validations as part of build (ProfileRSS/Atom/PSP/JSON).
 
 - Convert to target formats:
