@@ -49,7 +49,7 @@ func (a *JSONAttachment) MarshalJSON() ([]byte, error) {
 
 // JSONItem represents a single entry/post for the feed.
 type JSONItem struct {
-	*JSONItemFieldExtensions
+	*JSONItemExtension
 	Title         string           `json:"title,omitempty"`
 	Url           string           `json:"url,omitempty"`
 	ExternalUrl   string           `json:"external_url,omitempty"`
@@ -63,7 +63,7 @@ type JSONItem struct {
 	Attachments   []JSONAttachment `json:"attachments,omitempty"`
 }
 
-type JSONItemFieldExtensions struct {
+type JSONItemExtension struct {
 	ContentText string          `json:"content_text,omitempty"`
 	BannerImage string          `json:"banner_image,omitempty"`
 	Tags        []string        `json:"tags,omitempty"`
@@ -78,7 +78,7 @@ type JSONHub struct {
 
 // JSONFeed represents a syndication feed in the JSON Feed Version 1.1 format.
 type JSONFeed struct {
-	*JSONFeedFieldExtensions
+	*JSONFeedExtension
 	Title       string        `json:"title"`
 	HomePageUrl string        `json:"home_page_url,omitempty"`
 	Description string        `json:"description,omitempty"`
@@ -89,7 +89,7 @@ type JSONFeed struct {
 	FeedUrl     string        `json:"feed_url,omitempty"`
 }
 
-type JSONFeedFieldExtensions struct {
+type JSONFeedExtension struct {
 	Version     string          `json:"version"`
 	Language    string          `json:"language,omitempty"`
 	UserComment string          `json:"user_comment,omitempty"`
@@ -150,7 +150,7 @@ func (f *JSONFeed) MarshalJSON() ([]byte, error) {
 // JSONFeed creates a new JSONFeed with a generic Feed struct's data.
 func (f *JSON) JSONFeed() *JSONFeed {
 	feed := &JSONFeed{
-		JSONFeedFieldExtensions: &JSONFeedFieldExtensions{
+		JSONFeedExtension: &JSONFeedExtension{
 			Version:  jsonFeedVersion,
 			Language: f.Language,
 		},
@@ -230,7 +230,7 @@ func newJSONItem(i *Item) *JSONItem {
 		Title:       i.Title,
 		Summary:     i.Description,
 		ContentHTML: i.Content, // Use HTML when Content present
-		JSONItemFieldExtensions: &JSONItemFieldExtensions{
+		JSONItemExtension: &JSONItemExtension{
 			Exts: i.Extensions,
 		},
 	}
@@ -326,7 +326,7 @@ func (f *Feed) ValidateJSON() error {
 
 // WithJSONFeedExtension returns an ExtOption to append JSON Feed root-level extension keys.
 // Note: JSON extensions are flattened as name -> text pairs; complex objects/arrays are not supported.
-func WithJSONFeedExtension(fields JSONFeedFieldExtensions) ExtOption {
+func WithJSONFeedExtension(fields JSONFeedExtension) ExtOption {
 	var nodes []ExtensionNode
 	// user_comment
 	if s := strings.TrimSpace(fields.UserComment); s != "" {
@@ -353,7 +353,7 @@ func WithJSONFeedExtension(fields JSONFeedFieldExtensions) ExtOption {
 
 // WithJSONItemExtension returns an ExtOption to append JSON Feed item-level extension keys.
 // Note: tags are joined as a comma-separated string due to flattened key/value encoding.
-func WithJSONItemExtension(fields JSONItemFieldExtensions) ExtOption {
+func WithJSONItemExtension(fields JSONItemExtension) ExtOption {
 	var nodes []ExtensionNode
 	// content_text
 	if s := strings.TrimSpace(fields.ContentText); s != "" {

@@ -49,7 +49,7 @@ type AtomLink struct {
 }
 
 type AtomEntry struct {
-	*AtomEntryExtensionFields
+	*AtomEntryExtension
 	Title     string       `xml:"title"` // required
 	Links     []AtomLink   // required if no child 'content' elements
 	Source    string       `xml:"source,omitempty"`
@@ -61,7 +61,7 @@ type AtomEntry struct {
 	Published string `xml:"published,omitempty"`
 }
 
-type AtomEntryExtensionFields struct {
+type AtomEntryExtension struct {
 	XMLName     xml.Name `xml:"entry"`
 	Xmlns       string   `xml:"xmlns,attr,omitempty"`
 	Category    string   `xml:"category,omitempty"`
@@ -71,7 +71,7 @@ type AtomEntryExtensionFields struct {
 }
 
 type AtomFeed struct {
-	*AtomFeedExtensionFields
+	*AtomFeedExtension
 	Title    string `xml:"title"` // required
 	Link     *AtomLink
 	Subtitle string       `xml:"subtitle,omitempty"`
@@ -84,7 +84,7 @@ type AtomFeed struct {
 	Logo     string       `xml:"logo,omitempty"`
 }
 
-type AtomFeedExtensionFields struct {
+type AtomFeedExtension struct {
 	XMLName     xml.Name `xml:"feed"`
 	Xmlns       string   `xml:"xmlns,attr"`
 	Icon        string   `xml:"icon,omitempty"`
@@ -134,7 +134,7 @@ func (a *Atom) AtomFeed() *AtomFeed {
 		link = &Link{}
 	}
 	feed := &AtomFeed{
-		AtomFeedExtensionFields: &AtomFeedExtensionFields{
+		AtomFeedExtension: &AtomFeedExtension{
 			Xmlns: atomNS,
 		},
 		Title:    a.Title,
@@ -253,8 +253,8 @@ func newAtomEntry(i *Item) *AtomEntry {
 
 	// Custom item/entry extensions
 	if len(i.Extensions) > 0 {
-		if x.AtomEntryExtensionFields == nil {
-			x.AtomEntryExtensionFields = &AtomEntryExtensionFields{
+		if x.AtomEntryExtension == nil {
+			x.AtomEntryExtension = &AtomEntryExtension{
 				Xmlns: atomNS,
 			}
 		}
@@ -313,7 +313,7 @@ func (f *Feed) ValidateAtom() error {
 	return nil
 }
 
-func WithAtomFeedExtension(fields AtomFeedExtensionFields) ExtOption {
+func WithAtomFeedExtension(fields AtomFeedExtension) ExtOption {
 	var nodes []ExtensionNode
 	// atom:icon
 	if s := strings.TrimSpace(fields.Icon); s != "" {
@@ -342,7 +342,7 @@ func WithAtomFeedExtension(fields AtomFeedExtensionFields) ExtOption {
 	return newFeedNodes(nodes...)
 }
 
-func WithAtomEntryExtension(fields AtomEntryExtensionFields) ExtOption {
+func WithAtomEntryExtension(fields AtomEntryExtension) ExtOption {
 	var nodes []ExtensionNode
 	// atom:category
 	if s := strings.TrimSpace(fields.Category); s != "" {

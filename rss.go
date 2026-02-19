@@ -63,6 +63,11 @@ type RssItem struct {
 	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
+type RssItemFieldExtension struct {
+	AuthorEmail string
+	AuthorName  string
+}
+
 type RssFeed struct {
 	XMLName        xml.Name        `xml:"channel"`
 	Title          string          `xml:"title"`       // required
