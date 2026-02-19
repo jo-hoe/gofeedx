@@ -100,50 +100,28 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		return err
 	}
 
-	if err := ch.encodeLanguage(e); err != nil {
-		return err
+	// Run encoders in sequence to keep MarshalXML complexity low
+	steps := []func(*xml.Encoder) error{
+		ch.encodeLanguage,
+		ch.encodeAtomSelf,
+		ch.encodeCoreText,
+		ch.encodeDates,
+		ch.encodeItunesAuthor,
+		ch.encodeItunesExplicit,
+		ch.encodeItunesType,
+		ch.encodeItunesComplete,
+		ch.encodePodcastLocked,
+		ch.encodePodcastTXT,
+		ch.encodePodcastFunding,
+		ch.encodeItems,
+		ch.encodeItunesImage,
+		ch.encodeItunesCategories,
+		ch.encodeExtensions,
 	}
-	if err := ch.encodeAtomSelf(e); err != nil {
-		return err
-	}
-	if err := ch.encodeCoreText(e); err != nil {
-		return err
-	}
-	if err := ch.encodeDates(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesAuthor(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesExplicit(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesType(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesComplete(e); err != nil {
-		return err
-	}
-	if err := ch.encodePodcastLocked(e); err != nil {
-		return err
-	}
-	if err := ch.encodePodcastTXT(e); err != nil {
-		return err
-	}
-	if err := ch.encodePodcastFunding(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItems(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesImage(e); err != nil {
-		return err
-	}
-	if err := ch.encodeItunesCategories(e); err != nil {
-		return err
-	}
-	if err := ch.encodeExtensions(e); err != nil {
-		return err
+	for _, step := range steps {
+		if err := step(e); err != nil {
+			return err
+		}
 	}
 
 	// Close <channel>

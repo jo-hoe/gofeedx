@@ -184,59 +184,72 @@ func mapFeedExtensionsToJSON(feed *JSONFeed, exts []ExtensionNode) {
 	if len(exts) == 0 {
 		return
 	}
-	var extras []ExtensionNode
-	for _, n := range exts {
-		name := strings.TrimSpace(strings.ToLower(n.Name))
-		switch name {
-		case "_json:user_comment":
+	type handler func(*JSONFeed, ExtensionNode) bool
+	handlers := map[string]handler{
+		"_json:user_comment": func(f *JSONFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.UserComment = s
-			} else {
-				extras = append(extras, n)
+				f.UserComment = s
+				return true
 			}
-		case "_json:next_url":
+			return false
+		},
+		"_json:next_url": func(f *JSONFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.NextUrl = s
-			} else {
-				extras = append(extras, n)
+				f.NextUrl = s
+				return true
 			}
-		case "_json:expired":
+			return false
+		},
+		"_json:expired": func(f *JSONFeed, n ExtensionNode) bool {
 			switch strings.ToLower(strings.TrimSpace(n.Text)) {
 			case "true":
 				v := true
-				feed.Expired = &v
+				f.Expired = &v
+				return true
 			case "false":
 				v := false
-				feed.Expired = &v
+				f.Expired = &v
+				return true
 			default:
-				extras = append(extras, n)
+				return false
 			}
-		case "_json:hub":
+		},
+		"_json:hub": func(f *JSONFeed, n ExtensionNode) bool {
 			var ht, hu string
 			if n.Attrs != nil {
 				ht = strings.TrimSpace(n.Attrs["type"])
 				hu = strings.TrimSpace(n.Attrs["url"])
 			}
 			if ht != "" && hu != "" {
-				feed.Hubs = append(feed.Hubs, &JSONHub{Type: ht, Url: hu})
-			} else {
-				extras = append(extras, n)
+				f.Hubs = append(f.Hubs, &JSONHub{Type: ht, Url: hu})
+				return true
 			}
-		case "_json:icon":
+			return false
+		},
+		"_json:icon": func(f *JSONFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.Icon = s
-			} else {
-				extras = append(extras, n)
+				f.Icon = s
+				return true
 			}
-		case "_json:favicon":
+			return false
+		},
+		"_json:favicon": func(f *JSONFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.Favicon = s
-			} else {
-				extras = append(extras, n)
+				f.Favicon = s
+				return true
 			}
-		default:
-			extras = append(extras, n)
+			return false
+		},
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(feed, n) {
+				continue
+			}
 		}
+		extras = append(extras, n)
 	}
 	feed.Exts = extras
 }

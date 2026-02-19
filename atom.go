@@ -166,29 +166,30 @@ func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
 	if len(exts) == 0 {
 		return
 	}
-	var extras []ExtensionNode
-	for _, n := range exts {
-		name := strings.TrimSpace(strings.ToLower(n.Name))
-		switch name {
-		case "_atom:icon":
+	type handler func(*AtomFeed, ExtensionNode) bool
+	handlers := map[string]handler{
+		"_atom:icon": func(f *AtomFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.Icon = s
-			} else {
-				extras = append(extras, n)
+				f.Icon = s
+				return true
 			}
-		case "_atom:logo":
+			return false
+		},
+		"_atom:logo": func(f *AtomFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.Logo = s
-			} else {
-				extras = append(extras, n)
+				f.Logo = s
+				return true
 			}
-		case "_atom:rights":
+			return false
+		},
+		"_atom:rights": func(f *AtomFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				feed.Rights = s
-			} else {
-				extras = append(extras, n)
+				f.Rights = s
+				return true
 			}
-		case "_atom:contributor":
+			return false
+		},
+		"_atom:contributor": func(f *AtomFeed, n ExtensionNode) bool {
 			var ap AtomPerson
 			if n.Attrs != nil {
 				ap.Name = strings.TrimSpace(n.Attrs["name"])
@@ -196,11 +197,12 @@ func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
 				ap.Uri = strings.TrimSpace(n.Attrs["uri"])
 			}
 			if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
-				feed.Contributor = &AtomContributor{AtomPerson: ap}
-			} else {
-				extras = append(extras, n)
+				f.Contributor = &AtomContributor{AtomPerson: ap}
+				return true
 			}
-		case "_atom:link":
+			return false
+		},
+		"_atom:link": func(f *AtomFeed, n ExtensionNode) bool {
 			var l AtomLink
 			if n.Attrs != nil {
 				l.Href = strings.TrimSpace(n.Attrs["href"])
@@ -209,13 +211,21 @@ func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
 				l.Length = strings.TrimSpace(n.Attrs["length"])
 			}
 			if l.Href != "" {
-				feed.Link = &l
-			} else {
-				extras = append(extras, n)
+				f.Link = &l
+				return true
 			}
-		default:
-			extras = append(extras, n)
+			return false
+		},
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(feed, n) {
+				continue
+			}
 		}
+		extras = append(extras, n)
 	}
 	if len(extras) > 0 {
 		feed.Extra = append(feed.Extra, extras...)
@@ -283,23 +293,23 @@ func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
 	if len(exts) == 0 {
 		return
 	}
-	var extras []ExtensionNode
-	for _, n := range exts {
-		name := strings.TrimSpace(strings.ToLower(n.Name))
-		switch name {
-		case "_atom:category":
+	type handler func(*AtomEntry, ExtensionNode) bool
+	handlers := map[string]handler{
+		"_atom:category": func(en *AtomEntry, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				x.Category = s
-			} else {
-				extras = append(extras, n)
+				en.Category = s
+				return true
 			}
-		case "_atom:rights":
+			return false
+		},
+		"_atom:rights": func(en *AtomEntry, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				x.Rights = s
-			} else {
-				extras = append(extras, n)
+				en.Rights = s
+				return true
 			}
-		case "_atom:contributor":
+			return false
+		},
+		"_atom:contributor": func(en *AtomEntry, n ExtensionNode) bool {
 			var ap AtomPerson
 			if n.Attrs != nil {
 				ap.Name = strings.TrimSpace(n.Attrs["name"])
@@ -307,11 +317,12 @@ func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
 				ap.Uri = strings.TrimSpace(n.Attrs["uri"])
 			}
 			if ap.Name != "" || ap.Email != "" || ap.Uri != "" {
-				x.Contributor = &AtomContributor{AtomPerson: ap}
-			} else {
-				extras = append(extras, n)
+				en.Contributor = &AtomContributor{AtomPerson: ap}
+				return true
 			}
-		case "_atom:link":
+			return false
+		},
+		"_atom:link": func(en *AtomEntry, n ExtensionNode) bool {
 			var l AtomLink
 			if n.Attrs != nil {
 				l.Href = strings.TrimSpace(n.Attrs["href"])
@@ -320,19 +331,28 @@ func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
 				l.Length = strings.TrimSpace(n.Attrs["length"])
 			}
 			if l.Href != "" {
-				x.Links = append(x.Links, l)
-			} else {
-				extras = append(extras, n)
+				en.Links = append(en.Links, l)
+				return true
 			}
-		case "_atom:source":
+			return false
+		},
+		"_atom:source": func(en *AtomEntry, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				x.Source = s
-			} else {
-				extras = append(extras, n)
+				en.Source = s
+				return true
 			}
-		default:
-			extras = append(extras, n)
+			return false
+		},
+	}
+	var extras []ExtensionNode
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(x, n) {
+				continue
+			}
 		}
+		extras = append(extras, n)
 	}
 	if len(extras) > 0 {
 		x.Extra = append(x.Extra, extras...)
@@ -355,9 +375,17 @@ func firstNonEmpty(vals ...string) string {
 	return ""
 }
 
-// ValidateAtom enforces Atom 1.0 (RFC 4287) essentials on the generic Feed.
 func ValidateAtom(f *Feed) error {
-	// Feed-level required: title, updated (from Updated or Created), id (from ID or Link.Href)
+	if err := validateAtomFeedLevel(f); err != nil {
+		return err
+	}
+	if err := validateAtomEntries(f); err != nil {
+		return err
+	}
+	return validateAtomAuthorRequirement(f)
+}
+
+func validateAtomFeedLevel(f *Feed) error {
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("atom: feed title required")
 	}
@@ -367,11 +395,13 @@ func ValidateAtom(f *Feed) error {
 	if strings.TrimSpace(f.ID) == "" && (f.Link == nil || strings.TrimSpace(f.Link.Href) == "") {
 		return errors.New("atom: feed id required (set Feed.ID or Link.Href)")
 	}
-	// At least one entry
+	return nil
+}
+
+func validateAtomEntries(f *Feed) error {
 	if len(f.Items) == 0 {
 		return errors.New("atom: at least one entry required")
 	}
-	// Entry-level: title and updated (from Updated or Created)
 	for i, it := range f.Items {
 		if strings.TrimSpace(it.Title) == "" {
 			return fmt.Errorf("atom: entry[%d] title required", i)
@@ -380,16 +410,15 @@ func ValidateAtom(f *Feed) error {
 			return fmt.Errorf("atom: entry[%d] updated timestamp required (use Item.Updated or Item.Created)", i)
 		}
 	}
-	// Author requirement (RFC 4287 4.2.1): feed must have author unless all entries have one
-	if f.Author == nil || (strings.TrimSpace(f.Author.Name) == "" && strings.TrimSpace(f.Author.Email) == "") {
-		allEntriesHaveAuthors := true
-		for _, it := range f.Items {
-			if it.Author == nil || (strings.TrimSpace(it.Author.Name) == "" && strings.TrimSpace(it.Author.Email) == "") {
-				allEntriesHaveAuthors = false
-				break
-			}
-		}
-		if !allEntriesHaveAuthors {
+	return nil
+}
+
+func validateAtomAuthorRequirement(f *Feed) error {
+	if f.Author != nil && (strings.TrimSpace(f.Author.Name) != "" || strings.TrimSpace(f.Author.Email) != "") {
+		return nil
+	}
+	for _, it := range f.Items {
+		if it.Author == nil || (strings.TrimSpace(it.Author.Name) == "" && strings.TrimSpace(it.Author.Email) == "") {
 			return errors.New("atom: feed must contain an author or all entries must contain an author (RFC 4287 4.2.1)")
 		}
 	}

@@ -119,46 +119,82 @@ type rssChannelExtras struct {
 	nonRSSExtras                      []ExtensionNode
 }
 
+func parsePositiveInt(s string) (int, bool) {
+	t := strings.TrimSpace(s)
+	if t == "" {
+		return 0, false
+	}
+	v, err := strconv.Atoi(t)
+	if err != nil || v <= 0 {
+		return 0, false
+	}
+	return v, true
+}
+
+type rssChannelHandler func(*rssChannelExtras, ExtensionNode)
+
+func handleRSSImageSize(out *rssChannelExtras, n ExtensionNode) {
+	if n.Attrs == nil {
+		return
+	}
+	if s, ok := n.Attrs["width"]; ok {
+		if v, ok2 := parsePositiveInt(s); ok2 {
+			out.imgW = v
+		}
+	}
+	if s, ok := n.Attrs["height"]; ok {
+		if v, ok2 := parsePositiveInt(s); ok2 {
+			out.imgH = v
+		}
+	}
+}
+
+func handleRSSTTL(out *rssChannelExtras, n ExtensionNode) {
+	if v, ok := parsePositiveInt(n.Text); ok {
+		out.ttl = v
+	}
+}
+
+func handleRSSCategory(out *rssChannelExtras, n ExtensionNode) {
+	out.catOverride = strings.TrimSpace(n.Text)
+}
+func handleRSSWebMaster(out *rssChannelExtras, n ExtensionNode) {
+	out.webMaster = strings.TrimSpace(n.Text)
+}
+func handleRSSGenerator(out *rssChannelExtras, n ExtensionNode) {
+	out.generator = strings.TrimSpace(n.Text)
+}
+func handleRSSDocs(out *rssChannelExtras, n ExtensionNode)   { out.docs = strings.TrimSpace(n.Text) }
+func handleRSSCloud(out *rssChannelExtras, n ExtensionNode)  { out.cloud = strings.TrimSpace(n.Text) }
+func handleRSSRating(out *rssChannelExtras, n ExtensionNode) { out.rating = strings.TrimSpace(n.Text) }
+func handleRSSSkipHours(out *rssChannelExtras, n ExtensionNode) {
+	out.skipHours = strings.TrimSpace(n.Text)
+}
+func handleRSSSkipDays(out *rssChannelExtras, n ExtensionNode) {
+	out.skipDays = strings.TrimSpace(n.Text)
+}
+
 func extractRSSChannelExtras(exts []ExtensionNode) rssChannelExtras {
 	var out rssChannelExtras
+	if len(exts) == 0 {
+		return out
+	}
+	handlers := map[string]rssChannelHandler{
+		"_rss:imageSize": handleRSSImageSize,
+		"_rss:ttl":       handleRSSTTL,
+		"_rss:category":  handleRSSCategory,
+		"_rss:webMaster": handleRSSWebMaster,
+		"_rss:generator": handleRSSGenerator,
+		"_rss:docs":      handleRSSDocs,
+		"_rss:cloud":     handleRSSCloud,
+		"_rss:rating":    handleRSSRating,
+		"_rss:skipHours": handleRSSSkipHours,
+		"_rss:skipDays":  handleRSSSkipDays,
+	}
 	for _, n := range exts {
-		switch n.Name {
-		case "_rss:imageSize":
-			if n.Attrs != nil {
-				if s, ok := n.Attrs["width"]; ok {
-					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
-						out.imgW = v
-					}
-				}
-				if s, ok := n.Attrs["height"]; ok {
-					if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil && v > 0 {
-						out.imgH = v
-					}
-				}
-			}
-		case "_rss:ttl":
-			if t := strings.TrimSpace(n.Text); t != "" {
-				if v, err := strconv.Atoi(t); err == nil && v > 0 {
-					out.ttl = v
-				}
-			}
-		case "_rss:category":
-			out.catOverride = strings.TrimSpace(n.Text)
-		case "_rss:webMaster":
-			out.webMaster = strings.TrimSpace(n.Text)
-		case "_rss:generator":
-			out.generator = strings.TrimSpace(n.Text)
-		case "_rss:docs":
-			out.docs = strings.TrimSpace(n.Text)
-		case "_rss:cloud":
-			out.cloud = strings.TrimSpace(n.Text)
-		case "_rss:rating":
-			out.rating = strings.TrimSpace(n.Text)
-		case "_rss:skipHours":
-			out.skipHours = strings.TrimSpace(n.Text)
-		case "_rss:skipDays":
-			out.skipDays = strings.TrimSpace(n.Text)
-		default:
+		if h, ok := handlers[n.Name]; ok {
+			h(&out, n)
+		} else {
 			out.nonRSSExtras = append(out.nonRSSExtras, n)
 		}
 	}
