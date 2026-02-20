@@ -212,6 +212,26 @@ func TestPSPContentNamespaceWhenHTMLContent(t *testing.T) {
 	mustContain(t, xml, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`, "expected content namespace to be declared when HTML content is present")
 }
 
+func TestPSPContentNamespaceWhenDescriptionLooksHTML(t *testing.T) {
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	// Clear content and set description with HTML-like tags to trigger heuristic
+	item.Content = ""
+	item.Description = "Intro <b>bold</b>"
+	feed.Items = append(feed.Items, item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+	item.DurationSeconds = 10
+
+	mustNoErr(t, gofeedx.ValidatePSP(feed), "expected valid feed with HTML-like description")
+	xml, err := gofeedx.ToPSP(feed)
+	mustNoErr(t, err, "ToPSPRSS failed")
+	// Heuristic: description contains '<' and '>' -> content namespace should be present
+	mustContain(t, xml, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`, "expected content namespace due to HTML-like description")
+}
+
 // Test that podcast:guid is generated from URL per spec using UUID v5 with namespace
 // ead4c236-bf58-58c6-a2c6-a6b28d128cb6. Deterministic example using example.com.
 func TestPSPPodcastGUIDFromURLDeterministic(t *testing.T) {
@@ -551,4 +571,222 @@ func TestPSPPodcastGUIDFromURL_UppercaseScheme(t *testing.T) {
 	mustNoErr(t, err, "ToPSP error")
 	expected := uuidV5("ead4c236-bf58-58c6-a2c6-a6b28d128cb6", "HTTPS://example.com/podcast.rss")
 	mustContain(t, xml, "<podcast:guid>"+expected+"</podcast:guid>", "expected podcast:guid missing or wrong")
+}
+
+func TestPSPBuilderHelpers_ChannelScope(t *testing.T) {
+	// Build via FeedBuilder and apply PSP-specific helpers
+	b := gofeedx.NewFeed("My Podcast").
+		WithLink("https://example.com/podcast").
+		WithDescription("A show").
+		WithLanguage("en-us").
+		WithFeedURL("https://example.com/podcast.rss").
+		WithCategories("Technology")
+
+	// PSP builder helpers
+	b = b.
+		WithPSPExplicit(true).
+		WithPSPLocked(true).
+		WithPSPTXT("ownership", "verify").
+		WithPSPItunesType("serial").
+		WithPSPItunesComplete(true).
+		WithPSPImageHref("https://example.com/art2.jpg")
+
+	// Minimal item
+	ib := gofeedx.NewItem("Ep 1").
+		WithEnclosure("https://cdn.example.com/ep1.mp3", 100, "audio/mpeg")
+	b.AddItem(ib)
+
+	f, err := b.WithProfiles(gofeedx.ProfilePSP).Build()
+	mustNoErr(t, err, "Build PSP feed")
+	xml, err := gofeedx.ToPSP(f)
+	mustNoErr(t, err, "ToPSP failed")
+
+	// Channel-level assertions from builder helpers
+	mustContain(t, xml, "<itunes:explicit>true</itunes:explicit>", "expected itunes:explicit=true at channel")
+	mustContain(t, xml, "<podcast:locked>yes</podcast:locked>", "expected podcast:locked yes at channel")
+	mustContain(t, xml, "<podcast:txt", "expected podcast:txt at channel")
+	mustContain(t, xml, `purpose="verify"`, "expected podcast:txt purpose attribute")
+	mustContain(t, xml, ">ownership<", "expected podcast:txt value at channel")
+	mustContain(t, xml, "<itunes:type>serial</itunes:type>", "expected itunes:type serial at channel")
+	mustContain(t, xml, "<itunes:complete>yes</itunes:complete>", "expected itunes:complete yes at channel")
+	mustContain(t, xml, "<itunes:image", "expected itunes:image element at channel")
+	mustContain(t, xml, `href="https://example.com/art2.jpg"`, "expected itunes:image href override")
+}
+
+func TestPSPBuilderHelpers_ItemScope(t *testing.T) {
+	// Feed with minimal required fields via builder
+	b := gofeedx.NewFeed("Show").
+		WithLink("https://example.com/show").
+		WithDescription("d").
+		WithLanguage("en-us").
+		WithFeedURL("https://example.com/podcast.rss").
+		WithCategories("Tech")
+
+	// Item with PSP-specific helpers
+	ib := gofeedx.NewItem("Ep").
+		WithEnclosure("https://cdn.example.com/ep.mp3", 123, "audio/mpeg").
+		WithPSPExplicit(false).
+		WithPSPTranscript("https://example.com/ep.vtt", "text/vtt", "en", "captions").
+		WithPSPImageHref("https://example.com/ep.jpg").
+		WithPSPEpisode(2).
+		WithPSPSeason(1).
+		WithPSPEpisodeType("trailer").
+		WithPSPBlock(true)
+	b.AddItem(ib)
+
+	f, err := b.WithProfiles(gofeedx.ProfilePSP).Build()
+	mustNoErr(t, err, "Build PSP feed with item helpers")
+	xml, err := gofeedx.ToPSP(f)
+	mustNoErr(t, err, "ToPSP failed")
+
+	// Item-level assertions
+	mustContain(t, xml, "<itunes:explicit>false</itunes:explicit>", "expected itunes:explicit=false on item")
+	mustContain(t, xml, "<itunes:image", "expected itunes:image on item")
+	mustContain(t, xml, `href="https://example.com/ep.jpg"`, "expected itunes:image href on item")
+	mustContain(t, xml, "<itunes:episode>2</itunes:episode>", "expected itunes:episode on item")
+	mustContain(t, xml, "<itunes:season>1</itunes:season>", "expected itunes:season on item")
+	mustContain(t, xml, "<itunes:episodeType>trailer</itunes:episodeType>", "expected itunes:episodeType on item")
+	mustContain(t, xml, "<itunes:block>yes</itunes:block>", "expected itunes:block yes on item")
+	mustContain(t, xml, "<podcast:transcript", "expected podcast:transcript on item")
+	mustContain(t, xml, `url="https://example.com/ep.vtt"`, "expected transcript url attr on item")
+	mustContain(t, xml, `type="text/vtt"`, "expected transcript type attr on item")
+	mustContain(t, xml, `language="en"`, "expected transcript language attr on item")
+	mustContain(t, xml, `rel="captions"`, "expected transcript rel attr on item")
+}
+
+func TestPSPBuilderHelpers_InvalidInputsAreIgnored(t *testing.T) {
+	// Channel-level invalid itunes:type should be ignored
+	b := gofeedx.NewFeed("Show").
+		WithLink("https://example.com").
+		WithDescription("d").
+		WithLanguage("en-us").
+		WithFeedURL("https://example.com/podcast.rss").
+		WithCategories("Tech")
+	// Invalid channel helper inputs
+	b = b.WithPSPItunesType("invalid") // ignored
+	// Minimal item
+	ib := gofeedx.NewItem("Ep").WithEnclosure("https://cdn.example.com/ep.mp3", 100, "audio/mpeg")
+	b.AddItem(ib)
+	f, err := b.WithProfiles(gofeedx.ProfilePSP).Build()
+	mustNoErr(t, err, "Build PSP feed")
+	xml, err := gofeedx.ToPSP(f)
+	mustNoErr(t, err, "ToPSP failed")
+	// itunes:type should not be present
+	mustNotContain(t, xml, "<itunes:type>", "did not expect itunes:type for invalid input")
+
+	// Item-level invalid episodeType should be ignored, and 0 values episode/season ignored
+	b2 := gofeedx.NewFeed("Show2").
+		WithLink("https://example.com").
+		WithDescription("d").
+		WithLanguage("en-us").
+		WithFeedURL("https://example.com/podcast.rss").
+		WithCategories("Tech")
+	ib2 := gofeedx.NewItem("Ep2").
+		WithEnclosure("https://cdn.example.com/ep2.mp3", 100, "audio/mpeg").
+		WithPSPEpisode(0). // ignored
+		WithPSPSeason(0).  // ignored
+		WithPSPEpisodeType("foo") // ignored
+	b2.AddItem(ib2)
+	f2, err := b2.WithProfiles(gofeedx.ProfilePSP).Build()
+	mustNoErr(t, err, "Build PSP feed 2")
+	xml2, err := gofeedx.ToPSP(f2)
+	mustNoErr(t, err, "ToPSP failed 2")
+	mustNotContain(t, xml2, "<itunes:episode>", "did not expect itunes:episode for value 0")
+	mustNotContain(t, xml2, "<itunes:season>", "did not expect itunes:season for value 0")
+	mustNotContain(t, xml2, "<itunes:episodeType>", "did not expect itunes:episodeType for invalid value")
+}
+
+func TestValidatePSP_ItemMissingID(t *testing.T) {
+	// ValidatePSP should fail when item ID (guid) is missing and we don't run builder fallback
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	item.ID = "" // missing guid
+	feed.Items = append(feed.Items, item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	err := gofeedx.ValidatePSP(feed)
+	if err == nil || !strings.Contains(err.Error(), "guid (ID) required") {
+		t.Fatalf("ValidatePSP() expected item guid/ID required error, got: %v", err)
+	}
+}
+
+func TestPSP_NoContentNamespaceWhenNoHTML(t *testing.T) {
+	// Ensure PSP root does not include content namespace when neither Content nor HTML-like Description exist
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	item.Content = ""
+	item.Description = "Plain text only"
+	feed.Items = append(feed.Items, item)
+
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	xml, err := gofeedx.ToPSP(feed)
+	mustNoErr(t, err, "ToPSP failed")
+	mustNotContain(t, xml, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`, "did not expect content namespace without HTML content/description")
+}
+
+// Additional PSP item validation coverage: item description length limit
+func TestValidatePSP_ItemDescriptionLengthLimit(t *testing.T) {
+	feed := newBaseFeed()
+	// Valid feed-level requirements
+	feed.FeedURL = "https://example.com/podcast.rss"
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	// Item with description exceeding 4000 bytes -> should fail ValidatePSPItems
+	item := newBaseEpisode()
+	item.Description = strings.Repeat("x", 4001)
+	feed.Items = []*gofeedx.Item{item}
+
+	err := gofeedx.ValidatePSP(feed)
+	if err == nil || !strings.Contains(err.Error(), "description must be <= 4000 bytes") {
+		t.Fatalf("ValidatePSP() expected item description length limit error, got: %v", err)
+	}
+}
+
+func TestPSPChannelLockedFalseAndExplicitFalse(t *testing.T) {
+	// Build minimal valid PSP feed
+	b := gofeedx.NewFeed("Show").
+		WithLink("https://example.com").
+		WithDescription("desc").
+		WithLanguage("en-us").
+		WithFeedURL("https://example.com/podcast.rss").
+		WithCategories("Tech")
+
+	// Apply channel helpers with false values
+	b = b.WithPSPLocked(false).WithPSPExplicit(false)
+
+	// Minimal item
+	ib := gofeedx.NewItem("Ep").
+		WithEnclosure("https://cdn.example.com/ep.mp3", 100, "audio/mpeg")
+	b.AddItem(ib)
+
+	f, err := b.WithProfiles(gofeedx.ProfilePSP).Build()
+	mustNoErr(t, err, "Build PSP feed (locked=false, explicit=false)")
+	xml, err := gofeedx.ToPSP(f)
+	mustNoErr(t, err, "ToPSP failed")
+
+	// Assert channel-level locked and explicit false encodings
+	mustContain(t, xml, "<podcast:locked>no</podcast:locked>", "expected podcast:locked=no at channel")
+	mustContain(t, xml, "<itunes:explicit>false</itunes:explicit>", "expected itunes:explicit=false at channel")
+}
+
+func TestPSPAtomSelfLinkOmittedWhenFeedURLEmpty(t *testing.T) {
+	// Ensure atom:link rel=self is omitted when FeedURL is empty
+	feed := newBaseFeed()
+	item := newBaseEpisode()
+	feed.Items = append(feed.Items, item)
+
+	// Do not set FeedURL, but set other required fields
+	feed.Image = &gofeedx.Image{Url: "https://example.com/artwork.jpg"}
+	feed.Categories = append(feed.Categories, &gofeedx.Category{Text: "Technology"})
+
+	xml, err := gofeedx.ToPSP(feed)
+	mustNoErr(t, err, "ToPSP failed without FeedURL")
+	mustNotContain(t, xml, "<atom:link", "did not expect atom:link when FeedURL is empty")
 }

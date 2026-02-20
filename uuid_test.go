@@ -40,3 +40,13 @@ func TestUUIDv5_DeterministicAndBits(t *testing.T) {
 		t.Errorf("expected RFC4122 variant, got byte %02x", u1[8])
 	}
 }
+
+func TestMustUUIDv4_StringFormat(t *testing.T) {
+	// MustUUIDv4 should return a valid v4 UUID string (and not panic under normal circumstances)
+	u := MustUUIDv4()
+	s := u.String()
+	re := regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	if !re.MatchString(s) {
+		t.Errorf("MustUUIDv4 string not in canonical v4 form: %q", s)
+	}
+}

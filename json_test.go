@@ -547,3 +547,180 @@ func TestValidateJSON_ItemIdRequired(t *testing.T) {
 		t.Fatalf("ValidateJSON() expected item id required error, got: %v", err)
 	}
 }
+
+func TestJSONFeed_IconsFromImage_DefaultMapping(t *testing.T) {
+	// When Feed.Image is set and no JSON overrides are present, icon and favicon should map from Image.Url
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+		Link:  &gofeedx.Link{Href: "https://example.org/"},
+		Image: &gofeedx.Image{Url: "https://example.org/icon.png"},
+	}
+	// Minimal valid item with ID
+	f.Items = append(f.Items, &gofeedx.Item{ID: "id-1", Title: "Item"})
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	if obj["icon"] != "https://example.org/icon.png" {
+		t.Errorf("expected icon mapped from Feed.Image.Url, got %v", obj["icon"])
+	}
+	if obj["favicon"] != "https://example.org/icon.png" {
+		t.Errorf("expected favicon mapped from Feed.Image.Url, got %v", obj["favicon"])
+	}
+}
+
+func TestJSONBuilder_WithJSONExpiredFalse(t *testing.T) {
+	// Ensure expired=false is emitted when explicitly set via builder helper
+	b := gofeedx.NewFeed("T").WithLink("https://example.org/").WithJSONExpired(false)
+	b.AddItem(gofeedx.NewItem("I").WithID("id-1"))
+	f, err := b.WithProfiles(gofeedx.ProfileJSON).Build()
+	if err != nil {
+		t.Fatalf("Build error: %v", err)
+	}
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON error: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("json.Unmarshal: %v", err)
+	}
+	// expired should be present and false
+	if v, ok := obj["expired"].(bool); !ok || v {
+		t.Errorf("expected expired=false present, got %v", obj["expired"])
+	}
+}
+
+func TestJSONItem_ExternalURLFromSource(t *testing.T) {
+	// Verify that Item.Source maps to external_url in JSON
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+	}
+	f.Items = append(f.Items, &gofeedx.Item{
+		ID:     "id-1",
+		Title:  "Item",
+		Link:   &gofeedx.Link{Href: "https://example.org/page"},
+		Source: &gofeedx.Link{Href: "https://mirror.example.org/page"},
+	})
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items, _ := obj["items"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("expected items array")
+	}
+	first, _ := items[0].(map[string]any)
+	if first["external_url"] != "https://mirror.example.org/page" {
+		t.Errorf("expected external_url from Item.Source, got %v", first["external_url"])
+	}
+}
+
+func TestJSONItem_FallbackID_TagURIAndUUID(t *testing.T) {
+	// Case 1: tag: URI when link+date present and ID empty
+	f1 := &gofeedx.Feed{Title: "T"}
+	f1.Items = append(f1.Items, &gofeedx.Item{
+		Title:   "I1",
+		ID:      "",
+		Link:    &gofeedx.Link{Href: "https://example.org/x"},
+		Created: time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
+	})
+	js1, err := gofeedx.ToJSON(f1)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+	var obj1 map[string]any
+	if err := json.Unmarshal([]byte(js1), &obj1); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items1, _ := obj1["items"].([]any)
+	first1, _ := items1[0].(map[string]any)
+	if id, _ := first1["id"].(string); !strings.HasPrefix(id, "tag:") {
+		t.Errorf("expected fallback tag: URI id, got %v", id)
+	}
+
+	// Case 2: urn:uuid when neither link nor timestamps present
+	f2 := &gofeedx.Feed{Title: "T2"}
+	f2.Items = append(f2.Items, &gofeedx.Item{
+		Title: "I2",
+		ID:    "",
+	})
+	js2, err := gofeedx.ToJSON(f2)
+	if err != nil {
+		t.Fatalf("ToJSON failed (uuid case): %v", err)
+	}
+	var obj2 map[string]any
+	if err := json.Unmarshal([]byte(js2), &obj2); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	items2, _ := obj2["items"].([]any)
+	first2, _ := items2[0].(map[string]any)
+	if id, _ := first2["id"].(string); !strings.HasPrefix(id, "urn:uuid:") {
+		t.Errorf("expected fallback urn:uuid id, got %v", id)
+	}
+}
+
+func TestJSONFlattenSkipsEmptyExtensionValues(t *testing.T) {
+	// Top-level: empty name or text should be skipped in flattened extensions
+	f := &gofeedx.Feed{
+		Title: "JSON Title",
+	}
+	f.Extensions = []gofeedx.ExtensionNode{
+		{Name: "", Text: "x"},           // skipped
+		{Name: "x-empty", Text: ""},     // skipped
+		{Name: "x-valid", Text: "val"},  // included
+	}
+	// Item-level: same behavior
+	item := &gofeedx.Item{
+		ID:    "id-1",
+		Title: "Item",
+	}
+	item.Extensions = []gofeedx.ExtensionNode{
+		{Name: "", Text: "y"},            // skipped
+		{Name: "y-empty", Text: ""},      // skipped
+		{Name: "y-valid", Text: "ival"},  // included
+	}
+	f.Items = append(f.Items, item)
+
+	js, err := gofeedx.ToJSON(f)
+	if err != nil {
+		t.Fatalf("ToJSON failed: %v", err)
+	}
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(js), &obj); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	// top-level: expect x-valid only
+	if _, ok := obj["x-empty"]; ok {
+		t.Errorf("did not expect x-empty key (empty text should be skipped)")
+	}
+	if _, ok := obj[""]; ok {
+		t.Errorf("did not expect empty-name key")
+	}
+	if obj["x-valid"] != "val" {
+		t.Errorf("expected x-valid flattened with val, got %v", obj["x-valid"])
+	}
+	// item-level: expect y-valid only
+	items, _ := obj["items"].([]any)
+	if len(items) == 0 {
+		t.Fatalf("expected items array")
+	}
+	first, _ := items[0].(map[string]any)
+	if _, ok := first["y-empty"]; ok {
+		t.Errorf("did not expect y-empty key (empty text should be skipped)")
+	}
+	if _, ok := first[""]; ok {
+		t.Errorf("did not expect empty-name key at item level")
+	}
+	if first["y-valid"] != "ival" {
+		t.Errorf("expected y-valid flattened with ival, got %v", first["y-valid"])
+	}
+}

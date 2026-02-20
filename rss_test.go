@@ -305,6 +305,42 @@ func TestValidateRSS_AuthorEmailRequired(t *testing.T) {
 	}
 }
 
+func TestValidateRSS_MissingChannelTitle(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "Desc",
+	}
+	err := gofeedx.ValidateRSS(f)
+	if err == nil || !strings.Contains(err.Error(), "channel title required") {
+		t.Fatalf("ValidateRSS() expected channel title required error, got: %v", err)
+	}
+}
+
+func TestValidateRSS_MissingChannelLink(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        nil,
+		Description: "Desc",
+	}
+	err := gofeedx.ValidateRSS(f)
+	if err == nil || !strings.Contains(err.Error(), "channel link required") {
+		t.Fatalf("ValidateRSS() expected channel link required error, got: %v", err)
+	}
+}
+
+func TestValidateRSS_MissingChannelDescription(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:       "RSS Title",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "",
+	}
+	err := gofeedx.ValidateRSS(f)
+	if err == nil || !strings.Contains(err.Error(), "channel description required") {
+		t.Fatalf("ValidateRSS() expected channel description required error, got: %v", err)
+	}
+}
+
 // Moved from rss_builder_test.go to maintain 1:1 mapping
 func TestRSSBuilder_Helpers_ChannelAndItemFields_Moved(t *testing.T) {
 	// Build feed using RSS-specific builder helpers
@@ -357,4 +393,100 @@ func TestRSSBuilder_Helpers_ChannelAndItemFields_Moved(t *testing.T) {
 	mustContain(t, xml, "<item>", "expected an item in RSS output")
 	mustContain(t, xml, "<category>ItemCat</category>", "expected item category from WithRSSItemCategory")
 	mustContain(t, xml, "<comments>https://example.org/comments/1</comments>", "expected comments element from WithRSSComments")
+}
+
+// Additional RSS tests to increase coverage of mapping helpers and conditions
+
+func TestRSS_NoContentNamespaceWhenNoContentEncoded(t *testing.T) {
+	f := newRSSBaseFeed()
+	// No item.Content set
+	f.Items = append(f.Items, newRSSBaseItem())
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+	mustNotContain(t, xmlStr, `xmlns:content="http://purl.org/rss/1.0/modules/content/"`, "did not expect content namespace when no content:encoded")
+}
+
+func TestRSS_ItemSourceLinkMapped(t *testing.T) {
+	f := newRSSBaseFeed()
+	it := newRSSBaseItem()
+	it.Source = &gofeedx.Link{Href: "https://mirror.example.org/item1"}
+	f.Items = append(f.Items, it)
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+
+	// Expect <source> element carrying the source href
+	mustContain(t, xmlStr, "<source>https://mirror.example.org/item1</source>", "expected source element from Item.Source")
+}
+
+func TestRSS_ManagingEditorFromAuthorFormatting(t *testing.T) {
+	f := newRSSBaseFeed()
+	// Set feed.Author; managingEditor should use email (Name) formatting
+	f.Author = &gofeedx.Author{Name: "Alice", Email: "alice@example.org"}
+	f.Items = append(f.Items, newRSSBaseItem())
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+
+	mustContain(t, xmlStr, "<managingEditor>alice@example.org (Alice)</managingEditor>", "expected managingEditor formatted as email (Name)")
+}
+
+func TestRSS_ChannelCategoryFromGenericMapping(t *testing.T) {
+	f := newRSSBaseFeed()
+	// Provide top-level categories without RSS override -> first category should map
+	f.Categories = []*gofeedx.Category{{Text: "Tech"}, {Text: "News"}}
+	f.Items = append(f.Items, newRSSBaseItem())
+
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+	mustContain(t, xmlStr, "<category>Tech</category>", "expected channel category mapped from first generic category")
+}
+
+// Additional coverage: guid attribute behaviors and enclosure omission
+
+func TestRSSGuidIsPermaLinkOmittedWhenEmpty(t *testing.T) {
+	f := newRSSBaseFeed()
+	it := newRSSBaseItem()
+	it.ID = "abc"
+	it.IsPermaLink = "" // omitempty
+	f.Items = append(f.Items, it)
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+	// Guid value present, isPermaLink attribute omitted
+	mustContain(t, xmlStr, "<guid>abc</guid>", "expected guid value element without isPermaLink attribute")
+	mustNotContain(t, xmlStr, `isPermaLink="`, "did not expect isPermaLink attribute when empty")
+}
+
+func TestRSSEnclosureOmittedWhenInvalid(t *testing.T) {
+	f := newRSSBaseFeed()
+	it := newRSSBaseItem()
+	// Invalid enclosure (missing type and length) -> should not emit enclosure element
+	it.Enclosure = &gofeedx.Enclosure{Url: "", Type: "", Length: 0}
+	f.Items = append(f.Items, it)
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+	mustNotContain(t, xmlStr, "<enclosure ", "did not expect enclosure element when invalid attributes")
+}
+
+// Additional encoding cases
+
+func TestRSSItemDescriptionOmittedWhenWhitespaceOnly(t *testing.T) {
+	f := newRSSBaseFeed()
+	it := newRSSBaseItem()
+	it.Description = "   " // whitespace-only should be trimmed to empty and element omitted
+	f.Items = append(f.Items, it)
+
+	xmlStr, err := gofeedx.ToRSS(f)
+	mustNoErr(t, err, "ToRSS failed")
+
+	// Inspect only the first item block to avoid matching the channel-level description
+	start := strings.Index(xmlStr, "<item>")
+	if start == -1 {
+		t.Fatalf("expected <item> element present")
+	}
+	rest := xmlStr[start:]
+	end := strings.Index(rest, "</item>")
+	if end == -1 {
+		t.Fatalf("expected </item> closing tag present")
+	}
+	itemBlock := rest[:end]
+	mustNotContain(t, itemBlock, "<description>", "did not expect item description element when whitespace-only")
 }

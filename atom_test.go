@@ -17,13 +17,14 @@ type atomLink struct {
 }
 
 type atomEntry struct {
-	Title   string      `xml:"title"`
-	Id      string      `xml:"id"`
-	Updated string      `xml:"updated"`
-	Links   []atomLink  `xml:"link"`
-	Summary *atomInline `xml:"summary"`
-	Content *atomInline `xml:"content"`
-	Author  *atomPerson `xml:"author"`
+	Title     string      `xml:"title"`
+	Id        string      `xml:"id"`
+	Updated   string      `xml:"updated"`
+	Published string      `xml:"published"`
+	Links     []atomLink  `xml:"link"`
+	Summary   *atomInline `xml:"summary"`
+	Content   *atomInline `xml:"content"`
+	Author    *atomPerson `xml:"author"`
 }
 
 type atomPerson struct {
@@ -336,5 +337,382 @@ func TestValidateAtom_AuthorRequirement(t *testing.T) {
 	err := gofeedx.ValidateAtom(f)
 	if err == nil || !strings.Contains(err.Error(), "must contain an author") {
 		t.Fatalf("ValidateAtom() expected author requirement error, got: %v", err)
+	}
+}
+
+func TestAtomFeedInsertsUnknownAuthorWhenMissing(t *testing.T) {
+	f := newAtomBaseFeed()
+	// No feed author; one entry missing author -> feed author should be inserted as "unknown"
+	it := newAtomBaseItem()
+	// Ensure at least one item missing author
+	it.Author = nil
+	f.Items = append(f.Items, it)
+
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	// Expect feed-level author with name "unknown"
+	if !strings.Contains(xmlStr, "<author>") || !strings.Contains(xmlStr, "<name>unknown</name>") {
+		t.Errorf("expected feed-level author insertion with name=unknown when author requirement not met")
+	}
+}
+
+func TestValidateAtom_MissingEntryTitle(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:   "Atom Title",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: now,
+		Author:  &gofeedx.Author{Name: "Feed Author"},
+	}
+	// Entry with missing title -> invalid
+	f.Items = append(f.Items, &gofeedx.Item{
+		Title:   "",
+		Created: now,
+	})
+	err := gofeedx.ValidateAtom(f)
+	if err == nil || !strings.Contains(err.Error(), "entry[0] title required") {
+		t.Fatalf("ValidateAtom() expected entry title required error, got: %v", err)
+	}
+}
+
+func TestValidateAtom_MissingFeedTitle(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:   "",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: now,
+		Author:  &gofeedx.Author{Name: "Feed Author"},
+	}
+	f.Items = append(f.Items, &gofeedx.Item{
+		Title:   "Entry 1",
+		Created: now,
+	})
+	err := gofeedx.ValidateAtom(f)
+	if err == nil || !strings.Contains(err.Error(), "feed title required") {
+		t.Fatalf("ValidateAtom() expected feed title required error, got: %v", err)
+	}
+}
+
+func TestValidateAtom_NoEntries(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:   "Atom Title",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: time.Now().UTC(),
+		Author:  &gofeedx.Author{Name: "Feed Author"},
+	}
+	err := gofeedx.ValidateAtom(f)
+	if err == nil || !strings.Contains(err.Error(), "at least one entry required") {
+		t.Fatalf("ValidateAtom() expected at least one entry required error, got: %v", err)
+	}
+}
+
+func TestAtomBuilderHelpers_FeedLevelMapping(t *testing.T) {
+	now := time.Now().UTC()
+	// Build with Atom-specific helpers
+	b := gofeedx.NewFeed("T").
+		WithLink("https://example.org/").
+		WithDescription("D").
+		WithAtomIcon("https://example.org/icon.png").
+		WithAtomLogo("https://example.org/logo.png").
+		WithAtomRights("© 2026").
+		WithAtomContributor("Contrib", "c@example.org", "https://example.org/u").
+		WithAtomFeedLink("https://example.org/alt", "alternate", "text/html", "123")
+
+	// Minimal entry to satisfy rendering
+	ib := gofeedx.NewItem("E").WithCreated(now)
+	b.AddItem(ib)
+
+	// Render Atom
+	f, err := b.Build()
+	if err != nil {
+		t.Fatalf("Build() unexpected error: %v", err)
+	}
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+
+	// Assert mapped fields from helpers
+	if !strings.Contains(xmlStr, "<icon>https://example.org/icon.png</icon>") {
+		t.Errorf("expected Atom icon element from WithAtomIcon")
+	}
+	if !strings.Contains(xmlStr, "<logo>https://example.org/logo.png</logo>") {
+		t.Errorf("expected Atom logo element from WithAtomLogo")
+	}
+	if !strings.Contains(xmlStr, "<rights>© 2026</rights>") {
+		t.Errorf("expected Atom rights element from WithAtomRights")
+	}
+	if !strings.Contains(xmlStr, "<contributor>") ||
+		!strings.Contains(xmlStr, "<name>Contrib</name>") ||
+		!strings.Contains(xmlStr, "<email>c@example.org</email>") ||
+		!strings.Contains(xmlStr, "<uri>https://example.org/u</uri>") {
+		t.Errorf("expected Atom contributor element with name/email/uri from WithAtomContributor")
+	}
+	if !strings.Contains(xmlStr, `<link href="https://example.org/alt" rel="alternate" type="text/html" length="123"`) {
+		t.Errorf("expected Atom link with attributes from WithAtomFeedLink")
+	}
+}
+
+func TestAtomBuilderHelpers_ItemLevelMapping(t *testing.T) {
+	now := time.Now().UTC()
+	f := &gofeedx.Feed{
+		Title:       "T",
+		Link:        &gofeedx.Link{Href: "https://example.org/"},
+		Description: "D",
+		Created:     now,
+	}
+	// Item with Atom-specific helpers
+	ib := gofeedx.NewItem("E").
+		WithCreated(now).
+		WithAtomCategory("Cat").
+		WithAtomRights("All rights").
+		WithAtomContributor("Alice", "a@example.org", "https://example.org/a").
+		WithAtomLink("https://example.org/more", "related", "text/html", "5").
+		WithAtomSource("SourceName")
+	it, err := ib.Build()
+	if err != nil {
+		t.Fatalf("item Build() error: %v", err)
+	}
+	f.Items = []*gofeedx.Item{it}
+
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+
+	// Assert mapped entry fields
+	if !strings.Contains(xmlStr, "<category>Cat</category>") {
+		t.Errorf("expected Atom entry category from WithAtomCategory")
+	}
+	if !strings.Contains(xmlStr, "<rights>All rights</rights>") {
+		t.Errorf("expected Atom entry rights from WithAtomRights")
+	}
+	if !strings.Contains(xmlStr, "<contributor>") ||
+		!strings.Contains(xmlStr, "<name>Alice</name>") ||
+		!strings.Contains(xmlStr, "<email>a@example.org</email>") ||
+		!strings.Contains(xmlStr, "<uri>https://example.org/a</uri>") {
+		t.Errorf("expected Atom entry contributor from WithAtomContributor")
+	}
+	if !strings.Contains(xmlStr, `<link href="https://example.org/more" rel="related" type="text/html" length="5"`) {
+		t.Errorf("expected Atom entry link from WithAtomLink")
+	}
+	if !strings.Contains(xmlStr, "<source>SourceName</source>") {
+		t.Errorf("expected Atom entry source from WithAtomSource")
+	}
+}
+
+func TestAtomFeedIconsFromImage(t *testing.T) {
+	f := newAtomBaseFeed()
+	// Set feed image; Atom should map to <logo> and <icon> when not overridden
+	f.Image = &gofeedx.Image{Url: "https://example.org/art.png"}
+	f.Items = append(f.Items, newAtomBaseItem())
+
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	if !strings.Contains(xmlStr, "<logo>https://example.org/art.png</logo>") {
+		t.Errorf("expected Atom feed logo from Feed.Image.Url")
+	}
+	if !strings.Contains(xmlStr, "<icon>https://example.org/art.png</icon>") {
+		t.Errorf("expected Atom feed icon from Feed.Image.Url")
+	}
+}
+
+func TestAtomSummaryNoCDATAWhenDisabledAndPlain(t *testing.T) {
+	// Disable CDATA via feed-level extension and use plain text summary
+	f := newAtomBaseFeed()
+	// Set description without HTML
+	f.Description = "Plain summary"
+	// Disable CDATA
+	f.Extensions = append(f.Extensions, gofeedx.ExtensionNode{Name: "_xml:cdata", Text: "false"})
+	f.Items = append(f.Items, newAtomBaseItem())
+
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	// Expect subtitle and entry summary to be present without CDATA
+	if strings.Contains(xmlStr, "<![CDATA[") {
+		t.Errorf("did not expect CDATA when disabled globally")
+	}
+	if !strings.Contains(xmlStr, "<subtitle>Plain summary</subtitle>") {
+		t.Errorf("expected plain chardata subtitle without CDATA")
+	}
+}
+
+func TestAtomEntryLinksRelatedAndEnclosure(t *testing.T) {
+	// Entry with enclosure and source (related)
+	f := newAtomBaseFeed()
+	it := newAtomBaseItem()
+	it.Source = &gofeedx.Link{Href: "https://mirror.example.org/entry1"}
+	it.Enclosure = &gofeedx.Enclosure{Url: "https://cdn.example.org/a.mp3", Type: "audio/mpeg", Length: 123}
+	f.Items = append(f.Items, it)
+
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	var doc atomFeedDoc
+	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(doc.Entries) == 0 {
+		t.Fatalf("expected an entry")
+	}
+	e := doc.Entries[0]
+	// Expect related link
+	foundRelated := false
+	foundEnclosure := false
+	for _, l := range e.Links {
+		if l.Rel == "related" && l.Href == "https://mirror.example.org/entry1" {
+			foundRelated = true
+		}
+		if l.Rel == "enclosure" && l.Href == "https://cdn.example.org/a.mp3" && l.Type == "audio/mpeg" {
+			foundEnclosure = true
+		}
+	}
+	if !foundRelated {
+		t.Errorf("expected related link to source href")
+	}
+	if !foundEnclosure {
+		t.Errorf("expected enclosure link with type audio/mpeg")
+	}
+}
+
+func TestAtomFeedIdFallbackToLinkHref(t *testing.T) {
+	f := &gofeedx.Feed{
+		Title:   "T",
+		Link:    &gofeedx.Link{Href: "https://example.org/"},
+		Created: time.Now().UTC(),
+	}
+	f.Items = append(f.Items, newAtomBaseItem())
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	var doc atomFeedDoc
+	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if doc.Id != "https://example.org/" {
+		t.Errorf("expected feed id to fallback to Link.Href, got %q", doc.Id)
+	}
+}
+
+func TestAtomEntryPublishedFromCreated(t *testing.T) {
+	f := newAtomBaseFeed()
+	it := newAtomBaseItem()
+	// Ensure a fixed Created value for comparison
+	created := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+	it.Created = created
+	f.Items = append(f.Items, it)
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	var doc atomFeedDoc
+	if err := xml.Unmarshal([]byte(xmlStr), &doc); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(doc.Entries) == 0 {
+		t.Fatalf("expected an entry")
+	}
+	if doc.Entries[0].Published == "" {
+		t.Fatalf("expected published element from item Created")
+	}
+	if _, err := time.Parse(time.RFC3339, doc.Entries[0].Published); err != nil {
+		t.Errorf("published must be RFC3339, got %q: %v", doc.Entries[0].Published, err)
+	}
+}
+
+func TestAtomFeedCategoryFromGenericMapping(t *testing.T) {
+	f := newAtomBaseFeed()
+	f.Categories = []*gofeedx.Category{{Text: "Tech"}}
+	f.Items = append(f.Items, newAtomBaseItem())
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	if !strings.Contains(xmlStr, "<category>Tech</category>") {
+		t.Errorf("expected Atom feed category mapped from first generic category")
+	}
+}
+
+func TestAtomPassThroughUnknownExtensions(t *testing.T) {
+	// Feed-level unknown extension should be passed through to Extra
+	f := newAtomBaseFeed()
+	f.Extensions = append(f.Extensions, gofeedx.ExtensionNode{Name: "x:feedext", Text: "val"})
+	f.Items = append(f.Items, newAtomBaseItem())
+	xmlStr, err := gofeedx.ToAtom(f)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	if !strings.Contains(xmlStr, "<x:feedext>val</x:feedext>") {
+		t.Errorf("expected unknown feed extension to be emitted")
+	}
+	// Item-level unknown extension should be passed through to entry Extra
+	f2 := newAtomBaseFeed()
+	it := newAtomBaseItem()
+	it.Extensions = append(it.Extensions, gofeedx.ExtensionNode{Name: "x:itemext", Text: "ival"})
+	f2.Items = append(f2.Items, it)
+	xmlStr2, err := gofeedx.ToAtom(f2)
+	if err != nil {
+		t.Fatalf("ToAtom failed: %v", err)
+	}
+	if !strings.Contains(xmlStr2, "<x:itemext>ival</x:itemext>") {
+		t.Errorf("expected unknown item extension to be emitted")
+	}
+}
+
+// Ensure typed element encoding path without content still emits the tag with type attribute.
+func TestAtomTypedSummaryEmptyEncodesTag(t *testing.T) {
+	en := &gofeedx.AtomEntry{
+		// Use Extra to set CDATA preference; but since content is empty, CDATA path won't trigger.
+		Extra:   []gofeedx.ExtensionNode{{Name: "_xml:cdata", Text: "true"}},
+		Summary: &gofeedx.AtomSummary{Type: "html", Content: ""}, // empty content
+	}
+	data, err := xml.Marshal(en)
+	if err != nil {
+		t.Fatalf("Marshal AtomEntry failed: %v", err)
+	}
+	s := string(data)
+	// Should include a summary element with type attribute and no inner text
+	if !strings.Contains(s, `<summary type="html"></summary>`) {
+		t.Errorf("expected empty typed summary element, got: %s", s)
+	}
+}
+
+func TestAtomTypedSummaryCDATAEncodesWithType(t *testing.T) {
+	en := &gofeedx.AtomEntry{
+		Extra:   []gofeedx.ExtensionNode{{Name: "_xml:cdata", Text: "true"}},
+		Summary: &gofeedx.AtomSummary{Type: "html", Content: "<p>X</p>"},
+	}
+	data, err := xml.Marshal(en)
+	if err != nil {
+		t.Fatalf("Marshal AtomEntry failed: %v", err)
+	}
+	s := string(data)
+	// Should include CDATA-wrapped content with type attribute preserved
+	if !strings.Contains(s, `<summary type="html"><![CDATA[<p>X</p>]]></summary>`) {
+		t.Errorf("expected typed summary element with CDATA, got: %s", s)
+	}
+}
+
+func TestAtomTypedSummaryEscapedWhenCDATAFalse(t *testing.T) {
+	// When CDATA is disabled, typed elements should encode escaped chardata
+	en := &gofeedx.AtomEntry{
+		Extra:   []gofeedx.ExtensionNode{{Name: "_xml:cdata", Text: "false"}},
+		Summary: &gofeedx.AtomSummary{Type: "html", Content: "<p>X</p>"},
+	}
+	data, err := xml.Marshal(en)
+	if err != nil {
+		t.Fatalf("Marshal AtomEntry failed: %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `<summary type="html"><p>X</p></summary>`) {
+		t.Errorf("expected escaped chardata when CDATA disabled, got: %s", s)
 	}
 }
