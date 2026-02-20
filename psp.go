@@ -508,9 +508,6 @@ func validatePSPChannel(f *Feed) error {
 }
 
 func validatePSPItems(f *Feed) error {
-	if len(f.Items) == 0 {
-		return errors.New("psp: at least one item required")
-	}
 	for i, it := range f.Items {
 		if strings.TrimSpace(it.Title) == "" {
 			return fmt.Errorf("psp: item[%d] title required", i)

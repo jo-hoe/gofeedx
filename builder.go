@@ -367,10 +367,6 @@ func builderStrictChecks(f *Feed) error {
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("builder: feed title required")
 	}
-	// In strict mode, require at least one item to be present after filtering.
-	if len(f.Items) == 0 {
-		return errors.New("builder: at least one item required")
-	}
 	// enclosure checks delegated to ItemBuilder strict mode; feed-level has none
 	return nil
 }

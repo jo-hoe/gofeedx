@@ -496,10 +496,7 @@ func ValidateRSS(f *Feed) error {
 	if strings.TrimSpace(f.Description) == "" {
 		return errors.New("rss: channel description required")
 	}
-	// Items
-	if len(f.Items) == 0 {
-		return errors.New("rss: at least one item required")
-	}
+
 	for i, it := range f.Items {
 		// An item should have at least a title or a description
 		if strings.TrimSpace(it.Title) == "" && strings.TrimSpace(it.Description) == "" {

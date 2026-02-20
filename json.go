@@ -411,10 +411,7 @@ func ValidateJSON(f *Feed) error {
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("json: feed title required")
 	}
-	// Writer omits 'items' when empty due to omitempty; enforce at least one item to avoid invalid output
-	if len(f.Items) == 0 {
-		return errors.New("json: at least one item required")
-	}
+
 	// Item-level: id is required by spec
 	for i, it := range f.Items {
 		if strings.TrimSpace(it.ID) == "" {

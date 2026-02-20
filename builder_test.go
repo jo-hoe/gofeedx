@@ -50,8 +50,8 @@ func TestFeedBuilder_AddItemFilteringAndErrors(t *testing.T) {
 	b := NewFeed("t")
 	b.AddItem(NewItem("")) // strict item requires title or description, so Build() of item returns error -> nil
 	_, err := b.Build()
-	if err == nil || !strings.Contains(err.Error(), "at least one item required") {
-		t.Fatalf("expected at least one item required due to nil-filtering, got: %v", err)
+	if err != nil {
+		t.Fatalf("Build() unexpected error when item validation fails: %v", err)
 	}
 }
 

@@ -531,8 +531,8 @@ func TestValidateJSON_NoItems(t *testing.T) {
 		Title: "JSON Title",
 	}
 	err := gofeedx.ValidateJSON(f)
-	if err == nil || !strings.Contains(err.Error(), "at least one item required") {
-		t.Fatalf("ValidateJSON() expected at least one item error, got: %v", err)
+	if err != nil {
+		t.Fatalf("ValidateJSON() unexpected error for feed with no items: %v", err)
 	}
 }
 
