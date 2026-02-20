@@ -91,6 +91,14 @@ type PSPChannel struct {
 	Extra []ExtensionNode `xml:",any"`
 }
 
+// ToPSP renders the feed to a PSP-1 compliant RSS string after validating ProfilePSP.
+func ToPSP(feed *Feed) (string, error) {
+	if feed == nil {
+		return "", errors.New("nil feed")
+	}
+	return ToXML(&PSP{feed})
+}
+
 // MarshalXML customizes channel XML to avoid emitting untagged struct fields and to include extension nodes.
 func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Ensure we start with <channel> element

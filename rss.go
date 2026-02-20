@@ -98,7 +98,13 @@ func (r *Rss) FeedXml() interface{} {
 	return r.RssFeed().FeedXml()
 }
 
-// Internal helpers to reduce cyclomatic complexity.
+// ToRSS renders the feed to an RSS 2.0 string after validating ProfileRSS.
+func ToRSS(feed *Feed) (string, error) {
+	if feed == nil {
+		return "", errors.New("nil feed")
+	}
+	return ToXML(&Rss{feed})
+}
 
 // rssAuthorString builds the RSS author string (email with optional name in parens).
 func rssAuthorString(a *Author) string {

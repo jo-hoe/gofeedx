@@ -96,6 +96,14 @@ func (a *AtomFeed) FeedXml() interface{} {
 	return a
 }
 
+// ToAtom renders the feed to an Atom 1.0 string after validating ProfileAtom.
+func ToAtom(feed *Feed) (string, error) {
+	if feed == nil {
+		return "", errors.New("nil feed")
+	}
+	return ToXML(&Atom{feed})
+}
+
 // encodeAtomTypedElement encodes an element with a 'type' attribute.
 // Behavior:
 // - When useCDATA is true and the value contains markup, emit CDATA.

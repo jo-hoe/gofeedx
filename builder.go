@@ -621,43 +621,6 @@ func (b *ItemBuilder) Build() (*Item, error) {
 	return &b.item, nil
 }
 
-// Convenience helpers for rendering using the selected target profiles.
-
-// ToRSS renders the feed to an RSS 2.0 string after validating ProfileRSS.
-func ToRSS(feed *Feed) (string, error) {
-	if feed == nil {
-		return "", errors.New("nil feed")
-	}
-	return ToXML(&Rss{feed})
-}
-
-// ToAtom renders the feed to an Atom 1.0 string after validating ProfileAtom.
-func ToAtom(feed *Feed) (string, error) {
-	if feed == nil {
-		return "", errors.New("nil feed")
-	}
-	return ToXML(&Atom{feed})
-}
-
-// ToPSP renders the feed to a PSP-1 compliant RSS string after validating ProfilePSP.
-func ToPSP(feed *Feed) (string, error) {
-	if feed == nil {
-		return "", errors.New("nil feed")
-	}
-	return ToXML(&PSP{feed})
-}
-
-// ToJSON renders the feed to a JSON Feed 1.1 string after validating ProfileJSON.
-// Note: JSONFeed writer requires each item to have an ID. If missing, consider
-// building with ProfileJSON and letting the builder supply a fallback.
-func ToJSON(feed *Feed) (string, error) {
-	if feed == nil {
-		return "", errors.New("nil feed")
-	}
-	j := &JSON{Feed: feed}
-	return j.ToJSONString()
-}
-
 // String returns a short printable representation of the builder (for debugging).
 func (b *FeedBuilder) String() string {
 	return fmt.Sprintf("&FeedBuilder{Title:%q, Items:%d, Strict:%v, Profiles:%v}", b.feed.Title, len(b.items), b.strict, b.profiles)

@@ -96,6 +96,17 @@ type JSON struct {
 	*Feed
 }
 
+// ToJSON renders the feed to a JSON Feed 1.1 string after validating ProfileJSON.
+// Note: JSONFeed writer requires each item to have an ID. If missing, consider
+// building with ProfileJSON and letting the builder supply a fallback.
+func ToJSON(feed *Feed) (string, error) {
+	if feed == nil {
+		return "", errors.New("nil feed")
+	}
+	j := &JSON{Feed: feed}
+	return j.ToJSONString()
+}
+
 /*
 ToJSONString encodes f into a JSON string. Returns an error if marshalling fails.
 Use JSON.JSONFeed() to get the structured JSONFeed value.
