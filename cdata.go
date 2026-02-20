@@ -90,6 +90,16 @@ func CDATAUseForItem(parentUse bool, exts []ExtensionNode) bool {
 	return parentUse
 }
 
+// WithCDATAOverride returns a new extensions slice with a CDATA preference override appended.
+func WithCDATAOverride(exts []ExtensionNode, use bool) []ExtensionNode {
+	out := append([]ExtensionNode{}, exts...)
+	val := "true"
+	if !use {
+		val = "false"
+	}
+	return append(out, ExtensionNode{Name: "_xml:cdata", Text: val})
+}
+
 // UseCDATAForFeed returns the CDATA preference for a feed:
 // - Default: true (enabled)
 // - Can be overridden by a feed-level extension node: Name "_xml:cdata" with Text "true"/"false"

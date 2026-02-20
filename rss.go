@@ -95,22 +95,6 @@ type Rss struct {
 	*Feed
 }
 
-// useCDATAFromExtras returns true by default; overridden when an "_xml:cdata" extension is present.
-func useCDATAFromExtras(exts []ExtensionNode) bool {
-	use := true
-	for _, n := range exts {
-		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
-			t := strings.ToLower(strings.TrimSpace(n.Text))
-			if t == "false" {
-				return false
-			}
-			if t == "true" {
-				return true
-			}
-		}
-	}
-	return use
-}
 
 // FeedXml returns an XML-Ready object for an Rss object.
 func (r *Rss) FeedXml() interface{} {
@@ -379,7 +363,7 @@ func newRssItem(i *Item) *RssItem {
 func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Force correct element name regardless of caller-provided start
 	start.Name.Local = "item"
-	itemUse := useCDATAFromExtras(it.Extra)
+	itemUse := UseCDATAFromExtensions(it.Extra)
 	if err := e.EncodeToken(start); err != nil {
 		return err
 	}
@@ -442,7 +426,7 @@ func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Force correct element name regardless of caller-provided start
 	start.Name.Local = "channel"
-	chUse := useCDATAFromExtras(ch.Extra)
+	chUse := UseCDATAFromExtensions(ch.Extra)
 	if err := e.EncodeToken(start); err != nil {
 		return err
 	}
@@ -472,14 +456,8 @@ func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 		// Cascade channel preference to item (item may override via its own _xml:cdata extension)
 		itemUse := CDATAUseForItem(chUse, it.Extra)
-		ov := "true"
-		if !itemUse {
-			ov = "false"
-		}
-		// Shallow-copy item and append override extension for this encoding only
 		tmp := *it
-		tmp.Extra = append([]ExtensionNode{}, it.Extra...)
-		tmp.Extra = append(tmp.Extra, ExtensionNode{Name: "_xml:cdata", Text: ov})
+		tmp.Extra = WithCDATAOverride(it.Extra, itemUse)
 		if err := tmp.MarshalXML(e, xml.StartElement{Name: xml.Name{Local: "item"}}); err != nil {
 			return err
 		}
