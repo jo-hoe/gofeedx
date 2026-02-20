@@ -492,7 +492,7 @@ func TestFeedBuilder_SettersTrimAndNilBehavior(t *testing.T) {
 		WithLink("   ").
 		WithFeedURL("  https://example.org/feed  ").
 		WithDescription("D").
-		WithAuthor("   ", "   "). // both empty -> nil
+		WithAuthor("   ", "   ").    // both empty -> nil
 		WithImage("  ", "  ", "  "). // all empty -> nil
 		WithLanguage("  en-us  ").
 		WithCopyright(" C ").
@@ -534,13 +534,13 @@ func TestFeedBuilder_SettersTrimAndNilBehavior(t *testing.T) {
 func TestItemBuilder_SettersTrimAndNilBehavior(t *testing.T) {
 	ib := NewItem("  t  ").
 		WithID("  id  ").
-		WithLink("   "). // -> nil
+		WithLink("   ").   // -> nil
 		WithSource("   "). // -> nil
 		WithDescription("d").
 		WithContentHTML("html").
-		WithAuthor("   ", "   "). // -> nil
+		WithAuthor("   ", "   ").       // -> nil
 		WithEnclosure("   ", 0, "   "). // -> nil
-		WithDurationSeconds(-5) // -> 0
+		WithDurationSeconds(-5)         // -> 0
 	// lenient to avoid strict checks
 	it, err := ib.WithLenient().Build()
 	if err != nil {

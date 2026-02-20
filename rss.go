@@ -18,11 +18,11 @@ type RssFeedXml struct {
 	Channel          *RssFeed `xml:"channel"`
 }
 
- // RssContent holds HTML content for content:encoded.
- type RssContent struct {
- 	XMLName xml.Name `xml:"content:encoded"`
- 	Content string
- }
+// RssContent holds HTML content for content:encoded.
+type RssContent struct {
+	XMLName xml.Name `xml:"content:encoded"`
+	Content string
+}
 
 type RssImage struct {
 	XMLName xml.Name `xml:"image"`
@@ -47,54 +47,51 @@ type RssGuid struct {
 }
 
 type RssItem struct {
-	Title       CData `xml:"title"` // optional (spec requires title or description)
+	Title       CData       `xml:"title"` // optional (spec requires title or description)
 	Link        string      `xml:"link"`  // optional
 	Source      string      `xml:"source,omitempty"`
-	Author      CData `xml:"author,omitempty"`
-	Description CData `xml:"description"` // optional
+	Author      CData       `xml:"author,omitempty"`
+	Description CData       `xml:"description"` // optional
 	Content     *RssContent `xml:"content:encoded,omitempty"`
 	Guid        *RssGuid
 	PubDate     string `xml:"pubDate,omitempty"`
 	Enclosure   *RssEnclosure
 	XMLName     xml.Name        `xml:"item"`
-	Category    CData     `xml:"category,omitempty"`
-	Comments    CData     `xml:"comments,omitempty"`
+	Category    CData           `xml:"category,omitempty"`
+	Comments    CData           `xml:"comments,omitempty"`
 	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
-
 // RssFeed represents the RSS channel.
 type RssFeed struct {
-	Title          CData `xml:"title"`       // required
-	Link           string      `xml:"link"`        // required
-	Description    CData `xml:"description"` // required
-	ManagingEditor CData `xml:"managingEditor,omitempty"`
-	LastBuildDate  string      `xml:"lastBuildDate,omitempty"`
-	PubDate        string      `xml:"pubDate,omitempty"`
-	Items          []*RssItem  `xml:"item"`
-	Copyright      CData `xml:"copyright,omitempty"`
-	Image          *RssImage   `xml:"image,omitempty"`
-	Language       string      `xml:"language,omitempty"`
-	Category       CData `xml:"category,omitempty"`
+	Title          CData      `xml:"title"`       // required
+	Link           string     `xml:"link"`        // required
+	Description    CData      `xml:"description"` // required
+	ManagingEditor CData      `xml:"managingEditor,omitempty"`
+	LastBuildDate  string     `xml:"lastBuildDate,omitempty"`
+	PubDate        string     `xml:"pubDate,omitempty"`
+	Items          []*RssItem `xml:"item"`
+	Copyright      CData      `xml:"copyright,omitempty"`
+	Image          *RssImage  `xml:"image,omitempty"`
+	Language       string     `xml:"language,omitempty"`
+	Category       CData      `xml:"category,omitempty"`
 
 	XMLName   xml.Name        `xml:"channel"`
-	WebMaster CData     `xml:"webMaster,omitempty"`
-	Generator CData     `xml:"generator,omitempty"`
-	Docs      CData     `xml:"docs,omitempty"`
-	Cloud     CData     `xml:"cloud,omitempty"`
+	WebMaster CData           `xml:"webMaster,omitempty"`
+	Generator CData           `xml:"generator,omitempty"`
+	Docs      CData           `xml:"docs,omitempty"`
+	Cloud     CData           `xml:"cloud,omitempty"`
 	Ttl       int             `xml:"ttl,omitempty"`
-	Rating    CData     `xml:"rating,omitempty"`
-	SkipHours CData     `xml:"skipHours,omitempty"`
-	SkipDays  CData     `xml:"skipDays,omitempty"`
+	Rating    CData           `xml:"rating,omitempty"`
+	SkipHours CData           `xml:"skipHours,omitempty"`
+	SkipDays  CData           `xml:"skipDays,omitempty"`
 	Extra     []ExtensionNode `xml:",any"` // custom nodes at channel scope
 }
-
 
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
 type Rss struct {
 	*Feed
 }
-
 
 // FeedXml returns an XML-Ready object for an Rss object.
 func (r *Rss) FeedXml() interface{} {

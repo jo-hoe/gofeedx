@@ -683,8 +683,8 @@ func TestPSPBuilderHelpers_InvalidInputsAreIgnored(t *testing.T) {
 		WithCategories("Tech")
 	ib2 := gofeedx.NewItem("Ep2").
 		WithEnclosure("https://cdn.example.com/ep2.mp3", 100, "audio/mpeg").
-		WithPSPEpisode(0). // ignored
-		WithPSPSeason(0).  // ignored
+		WithPSPEpisode(0).        // ignored
+		WithPSPSeason(0).         // ignored
 		WithPSPEpisodeType("foo") // ignored
 	b2.AddItem(ib2)
 	f2, err := b2.WithProfiles(gofeedx.ProfilePSP).Build()

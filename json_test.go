@@ -674,9 +674,9 @@ func TestJSONFlattenSkipsEmptyExtensionValues(t *testing.T) {
 		Title: "JSON Title",
 	}
 	f.Extensions = []gofeedx.ExtensionNode{
-		{Name: "", Text: "x"},           // skipped
-		{Name: "x-empty", Text: ""},     // skipped
-		{Name: "x-valid", Text: "val"},  // included
+		{Name: "", Text: "x"},          // skipped
+		{Name: "x-empty", Text: ""},    // skipped
+		{Name: "x-valid", Text: "val"}, // included
 	}
 	// Item-level: same behavior
 	item := &gofeedx.Item{
@@ -684,9 +684,9 @@ func TestJSONFlattenSkipsEmptyExtensionValues(t *testing.T) {
 		Title: "Item",
 	}
 	item.Extensions = []gofeedx.ExtensionNode{
-		{Name: "", Text: "y"},            // skipped
-		{Name: "y-empty", Text: ""},      // skipped
-		{Name: "y-valid", Text: "ival"},  // included
+		{Name: "", Text: "y"},           // skipped
+		{Name: "y-empty", Text: ""},     // skipped
+		{Name: "y-valid", Text: "ival"}, // included
 	}
 	f.Items = append(f.Items, item)
 

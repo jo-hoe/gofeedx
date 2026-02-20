@@ -19,18 +19,14 @@ type AtomPerson struct {
 type AtomSummary struct {
 	XMLName xml.Name `xml:"summary"`
 	Content string
-	Type    string   `xml:"type,attr"`
+	Type    string `xml:"type,attr"`
 }
-
 
 type AtomContent struct {
 	XMLName xml.Name `xml:"content"`
 	Content string
-	Type    string   `xml:"type,attr"`
+	Type    string `xml:"type,attr"`
 }
-
-
-
 
 type AtomAuthor struct {
 	XMLName xml.Name `xml:"author"`
@@ -62,8 +58,8 @@ type AtomEntry struct {
 	Published   string   `xml:"published,omitempty"`
 	XMLName     xml.Name `xml:"entry"`
 	Xmlns       string   `xml:"xmlns,attr,omitempty"`
-	Category    CData   `xml:"category,omitempty"`
-	Rights      CData   `xml:"rights,omitempty"`
+	Category    CData    `xml:"category,omitempty"`
+	Rights      CData    `xml:"rights,omitempty"`
 	Contributor *AtomContributor
 	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
@@ -71,13 +67,13 @@ type AtomEntry struct {
 type AtomFeed struct {
 	Title       CData `xml:"title"` // required
 	Link        *AtomLink
-	Subtitle    CData  `xml:"subtitle,omitempty"`
+	Subtitle    CData        `xml:"subtitle,omitempty"`
 	Author      *AtomAuthor  `xml:"author,omitempty"`
 	Updated     string       `xml:"updated"` // required
 	Id          string       `xml:"id"`      // required
 	Entries     []*AtomEntry `xml:"entry"`
-	Category    CData  `xml:"category,omitempty"`
-	Rights      CData  `xml:"rights,omitempty"` // copyright used
+	Category    CData        `xml:"category,omitempty"`
+	Rights      CData        `xml:"rights,omitempty"` // copyright used
 	Logo        string       `xml:"logo,omitempty"`
 	XMLName     xml.Name     `xml:"feed"`
 	Xmlns       string       `xml:"xmlns,attr"`
@@ -100,11 +96,11 @@ func (a *AtomFeed) FeedXml() interface{} {
 	return a
 }
 
- // encodeAtomTypedElement encodes an element with a 'type' attribute.
- // Behavior:
- // - When useCDATA is true and the value contains markup, emit CDATA.
- // - Otherwise, for non-empty values, emit raw inner XML (unescaped) so tests expecting <p>...</p> pass.
- // - For empty values, emit an empty element with the type attribute.
+// encodeAtomTypedElement encodes an element with a 'type' attribute.
+// Behavior:
+// - When useCDATA is true and the value contains markup, emit CDATA.
+// - Otherwise, for non-empty values, emit raw inner XML (unescaped) so tests expecting <p>...</p> pass.
+// - For empty values, emit an empty element with the type attribute.
 func encodeAtomTypedElement(e *xml.Encoder, name, typ, value string, useCDATA bool) error {
 	val := UnwrapCDATA(strings.TrimSpace(value))
 	start := xml.StartElement{

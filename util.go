@@ -12,7 +12,7 @@ type XmlFeed interface {
 	FeedXml() interface{}
 }
 
- // ToXML marshals a feed wrapper to an XML string with the standard header (no trailing newline).
+// ToXML marshals a feed wrapper to an XML string with the standard header (no trailing newline).
 func ToXML(feed XmlFeed) (string, error) {
 	x := feed.FeedXml()
 	// Use xml.Encoder to ensure MarshalXML methods on writers are invoked

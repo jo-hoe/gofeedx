@@ -299,7 +299,6 @@ func isYes(s string) bool {
 	return strings.EqualFold(strings.TrimSpace(s), "yes")
 }
 
-
 func processExtensions(exts []ExtensionNode, handlers map[string]func(ExtensionNode) bool) (extras []ExtensionNode) {
 	for _, n := range exts {
 		name := strings.TrimSpace(strings.ToLower(n.Name))
@@ -396,19 +395,19 @@ OPTIONAL (supported when relevant):
 - <itunes:block>                     (ItunesBlock) — "yes"
 */
 type PSPItem struct {
-	Title             CData     `xml:"title"`                        // required
-	Link              string          `xml:"link,omitempty"`               // recommended
-	Description       CData     `xml:"description,omitempty"`        // recommended (wrap HTML in CDATA)
-	Guid              *RssGuid        `xml:"guid"`                         // required
-	PubDate           string          `xml:"pubDate,omitempty"`            // recommended RFC2822
-	Enclosure         *RssEnclosure   `xml:"enclosure"`                    // required
-	ItunesDuration    string          `xml:"itunes:duration,omitempty"`    // seconds
-	ItunesImage       *ItunesImage    `xml:"itunes:image,omitempty"`       // item artwork
-	ItunesExplicit    string          `xml:"itunes:explicit,omitempty"`    // "true" | "false"
-	ItunesEpisode     int             `xml:"itunes:episode,omitempty"`     // > 0
-	ItunesSeason      int             `xml:"itunes:season,omitempty"`      // > 0
-	ItunesEpisodeType string          `xml:"itunes:episodeType,omitempty"` // "full" | "trailer" | "bonus"
-	ItunesBlock       string          `xml:"itunes:block,omitempty"`       // "yes"
+	Title             CData            `xml:"title"`                        // required
+	Link              string           `xml:"link,omitempty"`               // recommended
+	Description       CData            `xml:"description,omitempty"`        // recommended (wrap HTML in CDATA)
+	Guid              *RssGuid         `xml:"guid"`                         // required
+	PubDate           string           `xml:"pubDate,omitempty"`            // recommended RFC2822
+	Enclosure         *RssEnclosure    `xml:"enclosure"`                    // required
+	ItunesDuration    string           `xml:"itunes:duration,omitempty"`    // seconds
+	ItunesImage       *ItunesImage     `xml:"itunes:image,omitempty"`       // item artwork
+	ItunesExplicit    string           `xml:"itunes:explicit,omitempty"`    // "true" | "false"
+	ItunesEpisode     int              `xml:"itunes:episode,omitempty"`     // > 0
+	ItunesSeason      int              `xml:"itunes:season,omitempty"`      // > 0
+	ItunesEpisodeType string           `xml:"itunes:episodeType,omitempty"` // "full" | "trailer" | "bonus"
+	ItunesBlock       string           `xml:"itunes:block,omitempty"`       // "yes"
 	Transcripts       []*PSPTranscript `xml:"podcast:transcript,omitempty"` // multiple allowed
 
 	XMLName xml.Name    `xml:"item"`
@@ -456,7 +455,6 @@ func (it *PSPItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 	return e.Flush()
 }
-
 
 func (it *PSPItem) encodeTitle(e *xml.Encoder, use bool) error {
 	return encodeElementCDATA(e, "title", string(it.Title), use)
@@ -700,7 +698,6 @@ func addItems(p *PSP, ch *PSPChannel) {
 	}
 }
 
-
 func mapChannelExtensions(exts []ExtensionNode, ch *PSPChannel) {
 	if len(exts) == 0 {
 		return
@@ -795,7 +792,6 @@ func handleExtPodcastFunding(ch *PSPChannel, n ExtensionNode) bool {
 }
 
 // Item-level PSP/iTunes extension mapping
-
 
 func mapItemExtensions(exts []ExtensionNode, it *PSPItem) (extras []ExtensionNode) {
 	if len(exts) == 0 {
@@ -1069,7 +1065,7 @@ func (b *ItemBuilder) WithPSPExplicit(explicit bool) *ItemBuilder {
 	return b.WithExtensions(ExtensionNode{Name: "itunes:explicit", Text: text})
 }
 
-	// WithPSPTranscript adds a podcast:transcript node at item scope.
+// WithPSPTranscript adds a podcast:transcript node at item scope.
 func (b *ItemBuilder) WithPSPTranscript(url, typ, language, rel string) *ItemBuilder {
 	url = strings.TrimSpace(url)
 	typ = strings.TrimSpace(typ)
