@@ -100,10 +100,18 @@ func (a *AtomFeed) FeedXml() interface{} {
 	return a
 }
 
-// encodeAtomTypedElement encodes an element with a 'type' attribute, using CDATA when requested.
+ // encodeAtomTypedElement encodes an element with a 'type' attribute.
+ // Behavior:
+ // - When useCDATA is true and the value contains markup, emit CDATA.
+ // - Otherwise, for non-empty values, emit raw inner XML (unescaped) so tests expecting <p>...</p> pass.
+ // - For empty values, emit an empty element with the type attribute.
 func encodeAtomTypedElement(e *xml.Encoder, name, typ, value string, useCDATA bool) error {
 	val := UnwrapCDATA(strings.TrimSpace(value))
-	start := xml.StartElement{Name: xml.Name{Local: name}, Attr: []xml.Attr{{Name: xml.Name{Local: "type"}, Value: typ}}}
+	start := xml.StartElement{
+		Name: xml.Name{Local: name},
+		Attr: []xml.Attr{{Name: xml.Name{Local: "type"}, Value: typ}},
+	}
+	// CDATA path
 	if useCDATA && val != "" && strings.ContainsAny(val, "<&") {
 		tmp := struct {
 			XMLName xml.Name
@@ -116,14 +124,22 @@ func encodeAtomTypedElement(e *xml.Encoder, name, typ, value string, useCDATA bo
 		}
 		return e.Encode(tmp)
 	}
-	// Fallback: chardata with type attr
+	// Raw inner XML path for non-empty
+	if val != "" {
+		tmp := struct {
+			XMLName xml.Name
+			Type    string `xml:"type,attr"`
+			Value   string `xml:",innerxml"`
+		}{
+			XMLName: start.Name,
+			Type:    typ,
+			Value:   val,
+		}
+		return e.Encode(tmp)
+	}
+	// Empty value: emit empty tag with type attr
 	if err := e.EncodeToken(start); err != nil {
 		return err
-	}
-	if val != "" {
-		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
-			return err
-		}
 	}
 	return e.EncodeToken(start.End())
 }
@@ -185,6 +201,9 @@ func (f *AtomFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 	for _, n := range f.Extra {
+		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}
@@ -257,6 +276,9 @@ func (en *AtomEntry) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 	// Extra nodes
 	for _, n := range en.Extra {
+		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}

@@ -177,14 +177,7 @@ func (ch *PSPChannel) encodeItunesAuthor(e *xml.Encoder, use bool) error {
 }
 
 func (ch *PSPChannel) encodeItunesExplicit(e *xml.Encoder) error {
-	if ch.ItunesExplicit == nil {
-		return nil
-	}
-	val := "false"
-	if *ch.ItunesExplicit {
-		val = "true"
-	}
-	return e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}})
+	return encodeBoolElement(e, "itunes:explicit", ch.ItunesExplicit, "true", "false")
 }
 
 func (ch *PSPChannel) encodeItunesType(e *xml.Encoder, use bool) error {
@@ -192,21 +185,11 @@ func (ch *PSPChannel) encodeItunesType(e *xml.Encoder, use bool) error {
 }
 
 func (ch *PSPChannel) encodeItunesComplete(e *xml.Encoder) error {
-	if ch.ItunesComplete {
-		return e.EncodeElement("yes", xml.StartElement{Name: xml.Name{Local: "itunes:complete"}})
-	}
-	return nil
+	return encodeFlagElement(e, "itunes:complete", ch.ItunesComplete, "yes")
 }
 
 func (ch *PSPChannel) encodePodcastLocked(e *xml.Encoder) error {
-	if ch.PodcastLocked == nil {
-		return nil
-	}
-	val := "no"
-	if *ch.PodcastLocked {
-		val = "yes"
-	}
-	return e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "podcast:locked"}})
+	return encodeBoolElement(e, "podcast:locked", ch.PodcastLocked, "yes", "no")
 }
 
 func (ch *PSPChannel) encodePodcastTXT(e *xml.Encoder) error {
@@ -264,6 +247,75 @@ func (ch *PSPChannel) encodeExtensions(e *xml.Encoder) error {
 		}
 	}
 	return nil
+}
+
+/*
+Generic helpers to apply DRY across PSP encoding and extension handling.
+*/
+func textLowerTrim(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+func attrTrim(attrs map[string]string, key string) string {
+	if attrs == nil {
+		return ""
+	}
+	return strings.TrimSpace(attrs[key])
+}
+
+func encodeBoolElement(e *xml.Encoder, name string, val *bool, trueStr, falseStr string) error {
+	if val == nil {
+		return nil
+	}
+	v := falseStr
+	if *val {
+		v = trueStr
+	}
+	return e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: name}})
+}
+
+func encodeFlagElement(e *xml.Encoder, name string, flag bool, value string) error {
+	if !flag {
+		return nil
+	}
+	return e.EncodeElement(value, xml.StartElement{Name: xml.Name{Local: name}})
+}
+
+func encodeStringIfSet(e *xml.Encoder, name, value string) error {
+	if s := strings.TrimSpace(value); s != "" {
+		return e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: name}})
+	}
+	return nil
+}
+
+func encodePositiveIntIfSet(e *xml.Encoder, name string, v int) error {
+	if v > 0 {
+		return e.EncodeElement(v, xml.StartElement{Name: xml.Name{Local: name}})
+	}
+	return nil
+}
+
+func isYes(s string) bool {
+	return strings.EqualFold(strings.TrimSpace(s), "yes")
+}
+
+
+func processExtensions(exts []ExtensionNode, handlers map[string]func(ExtensionNode) bool) (extras []ExtensionNode) {
+	for _, n := range exts {
+		name := strings.TrimSpace(strings.ToLower(n.Name))
+		if h, ok := handlers[name]; ok {
+			if h(n) {
+				continue
+			}
+		}
+		extras = append(extras, n)
+	}
+	return extras
+}
+
+func hasHTML(s string) bool {
+	// Heuristic: contains any angle brackets
+	return strings.Contains(s, "<") && strings.Contains(s, ">")
 }
 
 // PSPAtomLink emits atom:link
@@ -373,74 +425,108 @@ func (it *PSPItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if err := e.EncodeToken(start); err != nil {
 		return err
 	}
-	// Title
-	_ = encodeElementCDATA(e, "title", string(it.Title), use)
-	// Link
-	if strings.TrimSpace(it.Link) != "" {
-		if err := e.EncodeElement(it.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
+
+	// Encode in small steps to keep cyclomatic complexity low
+	steps := []func(*xml.Encoder, bool) error{
+		func(enc *xml.Encoder, use bool) error { return it.encodeTitle(enc, use) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeLink(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeDescription(enc, use) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeGuid(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodePubDate(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeEnclosure(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeContent(enc, use) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesDuration(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesImage(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesExplicit(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesEpisode(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesSeason(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesEpisodeType(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeItunesBlock(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeTranscripts(enc) },
+		func(enc *xml.Encoder, use bool) error { return it.encodeExtras(enc) },
+	}
+	for _, step := range steps {
+		if err := step(e, use); err != nil {
 			return err
 		}
 	}
-	// Description
-	_ = encodeElementCDATA(e, "description", string(it.Description), use)
-	// Guid
+
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
+}
+
+
+func (it *PSPItem) encodeTitle(e *xml.Encoder, use bool) error {
+	return encodeElementCDATA(e, "title", string(it.Title), use)
+}
+
+func (it *PSPItem) encodeLink(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "link", it.Link)
+}
+
+func (it *PSPItem) encodeDescription(e *xml.Encoder, use bool) error {
+	return encodeElementCDATA(e, "description", string(it.Description), use)
+}
+
+func (it *PSPItem) encodeGuid(e *xml.Encoder) error {
 	if it.Guid != nil {
-		if err := e.Encode(it.Guid); err != nil {
-			return err
-		}
+		return e.Encode(it.Guid)
 	}
-	// PubDate
-	if strings.TrimSpace(it.PubDate) != "" {
-		if err := e.EncodeElement(it.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
-			return err
-		}
-	}
-	// Enclosure
+	return nil
+}
+
+func (it *PSPItem) encodePubDate(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "pubDate", it.PubDate)
+}
+
+func (it *PSPItem) encodeEnclosure(e *xml.Encoder) error {
 	if it.Enclosure != nil {
-		if err := e.Encode(it.Enclosure); err != nil {
-			return err
-		}
+		return e.Encode(it.Enclosure)
 	}
-	// Optional HTML content via content:encoded
+	return nil
+}
+
+func (it *PSPItem) encodeContent(e *xml.Encoder, use bool) error {
 	if it.Content != nil && strings.TrimSpace(it.Content.Content) != "" {
-		_ = encodeElementCDATA(e, "content:encoded", it.Content.Content, use)
+		return encodeElementCDATA(e, "content:encoded", it.Content.Content, use)
 	}
-	// iTunes fields
-	if s := strings.TrimSpace(it.ItunesDuration); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:duration"}}); err != nil {
-			return err
-		}
-	}
+	return nil
+}
+
+func (it *PSPItem) encodeItunesDuration(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "itunes:duration", it.ItunesDuration)
+}
+
+func (it *PSPItem) encodeItunesImage(e *xml.Encoder) error {
 	if it.ItunesImage != nil {
-		if err := e.Encode(it.ItunesImage); err != nil {
-			return err
-		}
+		return e.Encode(it.ItunesImage)
 	}
-	if s := strings.TrimSpace(it.ItunesExplicit); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
-			return err
-		}
-	}
-	if it.ItunesEpisode > 0 {
-		if err := e.EncodeElement(it.ItunesEpisode, xml.StartElement{Name: xml.Name{Local: "itunes:episode"}}); err != nil {
-			return err
-		}
-	}
-	if it.ItunesSeason > 0 {
-		if err := e.EncodeElement(it.ItunesSeason, xml.StartElement{Name: xml.Name{Local: "itunes:season"}}); err != nil {
-			return err
-		}
-	}
-	if s := strings.TrimSpace(it.ItunesEpisodeType); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:episodeType"}}); err != nil {
-			return err
-		}
-	}
-	if s := strings.TrimSpace(it.ItunesBlock); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:block"}}); err != nil {
-			return err
-		}
-	}
+	return nil
+}
+
+func (it *PSPItem) encodeItunesExplicit(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "itunes:explicit", it.ItunesExplicit)
+}
+
+func (it *PSPItem) encodeItunesEpisode(e *xml.Encoder) error {
+	return encodePositiveIntIfSet(e, "itunes:episode", it.ItunesEpisode)
+}
+
+func (it *PSPItem) encodeItunesSeason(e *xml.Encoder) error {
+	return encodePositiveIntIfSet(e, "itunes:season", it.ItunesSeason)
+}
+
+func (it *PSPItem) encodeItunesEpisodeType(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "itunes:episodeType", it.ItunesEpisodeType)
+}
+
+func (it *PSPItem) encodeItunesBlock(e *xml.Encoder) error {
+	return encodeStringIfSet(e, "itunes:block", it.ItunesBlock)
+}
+
+func (it *PSPItem) encodeTranscripts(e *xml.Encoder) error {
 	for _, tr := range it.Transcripts {
 		if tr == nil {
 			continue
@@ -449,16 +535,16 @@ func (it *PSPItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
-	// Extra custom nodes
+	return nil
+}
+
+func (it *PSPItem) encodeExtras(e *xml.Encoder) error {
 	for _, n := range it.Extra {
 		if err := e.Encode(n); err != nil {
 			return err
 		}
 	}
-	if err := e.EncodeToken(start.End()); err != nil {
-		return err
-	}
-	return e.Flush()
+	return nil
 }
 
 // PSP is a wrapper to marshal a Feed as PSP-1 RSS with required namespaces.
@@ -535,7 +621,7 @@ func (p *PSP) wrapRoot(ch *PSPChannel) *PSPRSSRoot {
 			needsContent = true
 			break
 		}
-		if strings.Contains(it.Description, "<") && strings.Contains(it.Description, ">") {
+		if hasHTML(it.Description) {
 			needsContent = true
 			break
 		}
@@ -614,38 +700,28 @@ func addItems(p *PSP, ch *PSPChannel) {
 	}
 }
 
-type channelExtHandler func(*PSPChannel, ExtensionNode) bool
 
 func mapChannelExtensions(exts []ExtensionNode, ch *PSPChannel) {
 	if len(exts) == 0 {
 		return
 	}
-	handlers := map[string]channelExtHandler{
-		"itunes:explicit": handleExtItunesExplicit,
-		"itunes:type":     handleExtItunesType,
-		"itunes:complete": handleExtItunesComplete,
-		"itunes:image":    handleExtItunesImage,
-		"podcast:locked":  handleExtPodcastLocked,
-		"podcast:txt":     handleExtPodcastTXT,
-		"podcast:funding": handleExtPodcastFunding,
+	handlers := map[string]func(ExtensionNode) bool{
+		"itunes:explicit": func(n ExtensionNode) bool { return handleExtItunesExplicit(ch, n) },
+		"itunes:type":     func(n ExtensionNode) bool { return handleExtItunesType(ch, n) },
+		"itunes:complete": func(n ExtensionNode) bool { return handleExtItunesComplete(ch, n) },
+		"itunes:image":    func(n ExtensionNode) bool { return handleExtItunesImage(ch, n) },
+		"podcast:locked":  func(n ExtensionNode) bool { return handleExtPodcastLocked(ch, n) },
+		"podcast:txt":     func(n ExtensionNode) bool { return handleExtPodcastTXT(ch, n) },
+		"podcast:funding": func(n ExtensionNode) bool { return handleExtPodcastFunding(ch, n) },
 	}
-	var extras []ExtensionNode
-	for _, n := range exts {
-		name := strings.TrimSpace(strings.ToLower(n.Name))
-		if h, ok := handlers[name]; ok {
-			if h(ch, n) {
-				continue
-			}
-		}
-		extras = append(extras, n)
-	}
+	extras := processExtensions(exts, handlers)
 	if len(extras) > 0 {
 		ch.Extra = append(ch.Extra, extras...)
 	}
 }
 
 func handleExtItunesExplicit(ch *PSPChannel, n ExtensionNode) bool {
-	t := strings.ToLower(strings.TrimSpace(n.Text))
+	t := textLowerTrim(n.Text)
 	switch t {
 	case "true":
 		v := true
@@ -661,7 +737,7 @@ func handleExtItunesExplicit(ch *PSPChannel, n ExtensionNode) bool {
 }
 
 func handleExtItunesType(ch *PSPChannel, n ExtensionNode) bool {
-	t := strings.ToLower(strings.TrimSpace(n.Text))
+	t := textLowerTrim(n.Text)
 	if t == "episodic" || t == "serial" {
 		ch.ItunesType = t
 		return true
@@ -670,7 +746,7 @@ func handleExtItunesType(ch *PSPChannel, n ExtensionNode) bool {
 }
 
 func handleExtItunesComplete(ch *PSPChannel, n ExtensionNode) bool {
-	if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
+	if isYes(n.Text) {
 		ch.ItunesComplete = true
 		return true
 	}
@@ -678,17 +754,16 @@ func handleExtItunesComplete(ch *PSPChannel, n ExtensionNode) bool {
 }
 
 func handleExtItunesImage(ch *PSPChannel, n ExtensionNode) bool {
-	if n.Attrs != nil {
-		if href, ok := n.Attrs["href"]; ok && strings.TrimSpace(href) != "" {
-			ch.ItunesImageHref = strings.TrimSpace(href)
-			return true
-		}
+	href := attrTrim(n.Attrs, "href")
+	if href != "" {
+		ch.ItunesImageHref = href
+		return true
 	}
 	return false
 }
 
 func handleExtPodcastLocked(ch *PSPChannel, n ExtensionNode) bool {
-	t := strings.ToLower(strings.TrimSpace(n.Text))
+	t := textLowerTrim(n.Text)
 	if t == "yes" || t == "no" {
 		v := t == "yes"
 		ch.PodcastLocked = &v
@@ -704,19 +779,14 @@ func handleExtPodcastTXT(ch *PSPChannel, n ExtensionNode) bool {
 	}
 	pt := &PodcastTXT{Value: val}
 	if n.Attrs != nil {
-		if purpose, ok := n.Attrs["purpose"]; ok {
-			pt.Purpose = strings.TrimSpace(purpose)
-		}
+		pt.Purpose = attrTrim(n.Attrs, "purpose")
 	}
 	ch.PodcastTXT = pt
 	return true
 }
 
 func handleExtPodcastFunding(ch *PSPChannel, n ExtensionNode) bool {
-	var href string
-	if n.Attrs != nil {
-		href = strings.TrimSpace(n.Attrs["url"])
-	}
+	href := attrTrim(n.Attrs, "url")
 	if href != "" || strings.TrimSpace(n.Text) != "" {
 		ch.PodcastFunding = &PodcastFunding{Url: href, Text: n.Text}
 		return true
@@ -726,35 +796,25 @@ func handleExtPodcastFunding(ch *PSPChannel, n ExtensionNode) bool {
 
 // Item-level PSP/iTunes extension mapping
 
-type itemExtHandler func(*PSPItem, ExtensionNode) bool
 
 func mapItemExtensions(exts []ExtensionNode, it *PSPItem) (extras []ExtensionNode) {
 	if len(exts) == 0 {
 		return nil
 	}
-	handlers := map[string]itemExtHandler{
-		"itunes:explicit":     itemHandleItunesExplicit,
-		"itunes:image":        itemHandleItunesImage,
-		"itunes:episode":      itemHandleItunesEpisode,
-		"itunes:season":       itemHandleItunesSeason,
-		"itunes:episodetype":  itemHandleItunesEpisodeType,
-		"itunes:block":        itemHandleItunesBlock,
-		"podcast:transcript":  itemHandlePodcastTranscript,
+	handlers := map[string]func(ExtensionNode) bool{
+		"itunes:explicit":    func(n ExtensionNode) bool { return itemHandleItunesExplicit(it, n) },
+		"itunes:image":       func(n ExtensionNode) bool { return itemHandleItunesImage(it, n) },
+		"itunes:episode":     func(n ExtensionNode) bool { return itemHandleItunesEpisode(it, n) },
+		"itunes:season":      func(n ExtensionNode) bool { return itemHandleItunesSeason(it, n) },
+		"itunes:episodetype": func(n ExtensionNode) bool { return itemHandleItunesEpisodeType(it, n) },
+		"itunes:block":       func(n ExtensionNode) bool { return itemHandleItunesBlock(it, n) },
+		"podcast:transcript": func(n ExtensionNode) bool { return itemHandlePodcastTranscript(it, n) },
 	}
-	for _, n := range exts {
-		name := strings.TrimSpace(strings.ToLower(n.Name))
-		if h, ok := handlers[name]; ok {
-			if h(it, n) {
-				continue
-			}
-		}
-		extras = append(extras, n)
-	}
-	return
+	return processExtensions(exts, handlers)
 }
 
 func itemHandleItunesExplicit(it *PSPItem, n ExtensionNode) bool {
-	t := strings.ToLower(strings.TrimSpace(n.Text))
+	t := textLowerTrim(n.Text)
 	if t == "true" || t == "false" {
 		it.ItunesExplicit = t
 		return true
@@ -763,21 +823,16 @@ func itemHandleItunesExplicit(it *PSPItem, n ExtensionNode) bool {
 }
 
 func itemHandleItunesImage(it *PSPItem, n ExtensionNode) bool {
-	if n.Attrs == nil {
-		return false
-	}
-	if href, ok := n.Attrs["href"]; ok {
-		if s := strings.TrimSpace(href); s != "" {
-			it.ItunesImage = &ItunesImage{Href: s}
-			return true
-		}
+	href := attrTrim(n.Attrs, "href")
+	if href != "" {
+		it.ItunesImage = &ItunesImage{Href: href}
+		return true
 	}
 	return false
 }
 
 func itemHandleItunesEpisode(it *PSPItem, n ExtensionNode) bool {
-	v, err := strconv.Atoi(strings.TrimSpace(n.Text))
-	if err == nil && v > 0 {
+	if v, ok := parsePositiveInt(n.Text); ok {
 		it.ItunesEpisode = v
 		return true
 	}
@@ -785,8 +840,7 @@ func itemHandleItunesEpisode(it *PSPItem, n ExtensionNode) bool {
 }
 
 func itemHandleItunesSeason(it *PSPItem, n ExtensionNode) bool {
-	v, err := strconv.Atoi(strings.TrimSpace(n.Text))
-	if err == nil && v > 0 {
+	if v, ok := parsePositiveInt(n.Text); ok {
 		it.ItunesSeason = v
 		return true
 	}
@@ -794,7 +848,7 @@ func itemHandleItunesSeason(it *PSPItem, n ExtensionNode) bool {
 }
 
 func itemHandleItunesEpisodeType(it *PSPItem, n ExtensionNode) bool {
-	t := strings.ToLower(strings.TrimSpace(n.Text))
+	t := textLowerTrim(n.Text)
 	switch t {
 	case "full", "trailer", "bonus":
 		it.ItunesEpisodeType = t
@@ -805,7 +859,7 @@ func itemHandleItunesEpisodeType(it *PSPItem, n ExtensionNode) bool {
 }
 
 func itemHandleItunesBlock(it *PSPItem, n ExtensionNode) bool {
-	if strings.EqualFold(strings.TrimSpace(n.Text), "yes") {
+	if isYes(n.Text) {
 		it.ItunesBlock = "yes"
 		return true
 	}
@@ -813,11 +867,8 @@ func itemHandleItunesBlock(it *PSPItem, n ExtensionNode) bool {
 }
 
 func itemHandlePodcastTranscript(it *PSPItem, n ExtensionNode) bool {
-	if n.Attrs == nil {
-		return false
-	}
-	url := strings.TrimSpace(n.Attrs["url"])
-	typ := strings.TrimSpace(n.Attrs["type"])
+	url := attrTrim(n.Attrs, "url")
+	typ := attrTrim(n.Attrs, "type")
 	if url == "" || typ == "" {
 		return false
 	}
@@ -825,10 +876,10 @@ func itemHandlePodcastTranscript(it *PSPItem, n ExtensionNode) bool {
 		Url:  url,
 		Type: typ,
 	}
-	if s := strings.TrimSpace(n.Attrs["language"]); s != "" {
+	if s := attrTrim(n.Attrs, "language"); s != "" {
 		tr.Language = s
 	}
-	if s := strings.TrimSpace(n.Attrs["rel"]); s != "" {
+	if s := attrTrim(n.Attrs, "rel"); s != "" {
 		tr.Rel = s
 	}
 	it.Transcripts = append(it.Transcripts, tr)
