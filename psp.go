@@ -250,6 +250,9 @@ func (ch *PSPChannel) encodeItunesCategories(e *xml.Encoder) error {
 
 func (ch *PSPChannel) encodeExtensions(e *xml.Encoder) error {
 	for _, n := range ch.Extra {
+		if IsInternalExtensionName(n.Name) {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}
@@ -546,6 +549,9 @@ func (it *PSPItem) encodeTranscripts(e *xml.Encoder) error {
 
 func (it *PSPItem) encodeExtras(e *xml.Encoder) error {
 	for _, n := range it.Extra {
+		if IsInternalExtensionName(n.Name) {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}

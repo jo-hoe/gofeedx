@@ -201,9 +201,13 @@ func extractRSSChannelExtras(exts []ExtensionNode) rssChannelExtras {
 	for _, n := range exts {
 		if h, ok := handlers[n.Name]; ok {
 			h(&out, n)
-		} else {
-			out.nonRSSExtras = append(out.nonRSSExtras, n)
+			continue
 		}
+		// Keep _xml:cdata to allow CDATA preference lookups, drop other internal markers
+		if IsInternalExtensionName(n.Name) && !strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			continue
+		}
+		out.nonRSSExtras = append(out.nonRSSExtras, n)
 	}
 	return out
 }
@@ -247,6 +251,10 @@ func itemRSSExtensions(exts []ExtensionNode) (category, comments string, extras 
 				extras = append(extras, n)
 			}
 		default:
+			// Keep _xml:cdata so item-level CDATA preference can be read; drop other internal markers
+			if IsInternalExtensionName(n.Name) && !strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+				continue
+			}
 			extras = append(extras, n)
 		}
 	}
@@ -409,6 +417,9 @@ func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	_ = encodeElementCDATA(e, "comments", string(it.Comments), itemUse)
 	// Extra nodes
 	for _, n := range it.Extra {
+		if IsInternalExtensionName(n.Name) {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}
@@ -476,6 +487,9 @@ func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	_ = encodeElementCDATA(e, "skipDays", string(ch.SkipDays), chUse)
 
 	for _, n := range ch.Extra {
+		if IsInternalExtensionName(n.Name) {
+			continue
+		}
 		if err := e.Encode(n); err != nil {
 			return err
 		}

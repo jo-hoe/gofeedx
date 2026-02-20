@@ -92,3 +92,17 @@ func encodeIntElementIfPositive(e *xml.Encoder, name string, n int) error {
 	}
 	return nil
 }
+
+// IsInternalExtensionName reports whether an extension node name is an internal builder/control
+// marker that should never be emitted in public output. Internal markers are scoped by prefix:
+//   - _json:...  (JSON feed helpers/control)
+//   - _xml:...   (shared XML controls like CDATA preferences)
+//   - _rss:...   (RSS-specific helpers/control)
+//   - _atom:...  (Atom-specific helpers/control)
+func IsInternalExtensionName(name string) bool {
+	s := strings.ToLower(strings.TrimSpace(name))
+	return strings.HasPrefix(s, "_json:") ||
+		strings.HasPrefix(s, "_xml:") ||
+		strings.HasPrefix(s, "_rss:") ||
+		strings.HasPrefix(s, "_atom:")
+}

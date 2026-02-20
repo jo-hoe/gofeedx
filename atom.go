@@ -205,7 +205,7 @@ func (f *AtomFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 	for _, n := range f.Extra {
-		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+		if IsInternalExtensionName(n.Name) {
 			continue
 		}
 		if err := e.Encode(n); err != nil {
@@ -280,7 +280,7 @@ func (en *AtomEntry) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 	// Extra nodes
 	for _, n := range en.Extra {
-		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+		if IsInternalExtensionName(n.Name) {
 			continue
 		}
 		if err := e.Encode(n); err != nil {
@@ -422,6 +422,10 @@ func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
 				continue
 			}
 		}
+		// Drop internal control markers except allow _xml:cdata to remain for CDATA preference resolution
+		if IsInternalExtensionName(name) && !strings.EqualFold(name, "_xml:cdata") {
+			continue
+		}
 		extras = append(extras, n)
 	}
 	if len(extras) > 0 {
@@ -548,6 +552,10 @@ func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
 			if h(x, n) {
 				continue
 			}
+		}
+		// Drop internal control markers except allow _xml:cdata for CDATA preference
+		if IsInternalExtensionName(name) && !strings.EqualFold(name, "_xml:cdata") {
+			continue
 		}
 		extras = append(extras, n)
 	}

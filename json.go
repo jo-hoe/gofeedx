@@ -145,6 +145,9 @@ func (f *JSONFeed) MarshalJSON() ([]byte, error) {
 		if n.Name == "" || n.Text == "" {
 			continue
 		}
+		if IsInternalExtensionName(n.Name) {
+			continue
+		}
 		m[n.Name] = n.Text
 	}
 	return json.Marshal(m)
@@ -260,6 +263,9 @@ func mapFeedExtensionsToJSON(feed *JSONFeed, exts []ExtensionNode) {
 				continue
 			}
 		}
+		if IsInternalExtensionName(name) {
+			continue
+		}
 		extras = append(extras, n)
 	}
 	feed.Exts = extras
@@ -325,7 +331,7 @@ func mapItemExtensionsToJSON(ji *JSONItem, exts []ExtensionNode) {
 	if len(exts) == 0 {
 		return
 	}
-	var extras []ExtensionNode
+		var extras []ExtensionNode
 	for _, n := range exts {
 		name := strings.TrimSpace(strings.ToLower(n.Name))
 		switch name {
@@ -365,6 +371,9 @@ func mapItemExtensionsToJSON(ji *JSONItem, exts []ExtensionNode) {
 				extras = append(extras, n)
 			}
 		default:
+			if IsInternalExtensionName(name) {
+				continue
+			}
 			extras = append(extras, n)
 		}
 	}
@@ -402,6 +411,9 @@ func (ji *JSONItem) MarshalJSON() ([]byte, error) {
 	// Flatten extensions: name -> text (attributes/children ignored)
 	for _, n := range ji.Exts {
 		if n.Name == "" || n.Text == "" {
+			continue
+		}
+		if IsInternalExtensionName(n.Name) {
 			continue
 		}
 		m[n.Name] = n.Text
