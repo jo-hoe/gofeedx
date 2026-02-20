@@ -101,15 +101,18 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		return err
 	}
 
+	// CDATA preference from extensions (default: enabled)
+	use := UseCDATAFromExtensions(ch.Extra)
+
 	// Run encoders in sequence to keep MarshalXML complexity low
 	steps := []func(*xml.Encoder) error{
-		ch.encodeLanguage,
+		func(enc *xml.Encoder) error { return ch.encodeLanguage(enc, use) },
 		ch.encodeAtomSelf,
-		ch.encodeCoreText,
-		ch.encodeDates,
-		ch.encodeItunesAuthor,
+		func(enc *xml.Encoder) error { return ch.encodeCoreText(enc, use) },
+		func(enc *xml.Encoder) error { return ch.encodeDates(enc, use) },
+		func(enc *xml.Encoder) error { return ch.encodeItunesAuthor(enc, use) },
 		ch.encodeItunesExplicit,
-		ch.encodeItunesType,
+		func(enc *xml.Encoder) error { return ch.encodeItunesType(enc, use) },
 		ch.encodeItunesComplete,
 		ch.encodePodcastLocked,
 		ch.encodePodcastTXT,
@@ -134,15 +137,15 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 // Internal helpers to reduce cyclomatic complexity of MarshalXML.
 
-func (ch *PSPChannel) encodeTextIfSet(e *xml.Encoder, name, value string) error {
+func (ch *PSPChannel) encodeTextIfSet(e *xml.Encoder, name, value string, use bool) error {
 	if s := strings.TrimSpace(value); s != "" {
-		return encodeElementCDATA(e, name, s)
+		return encodeElementCDATA(e, name, s, use)
 	}
 	return nil
 }
 
-func (ch *PSPChannel) encodeLanguage(e *xml.Encoder) error {
-	return ch.encodeTextIfSet(e, "language", ch.Language)
+func (ch *PSPChannel) encodeLanguage(e *xml.Encoder, use bool) error {
+	return ch.encodeTextIfSet(e, "language", ch.Language, use)
 }
 
 func (ch *PSPChannel) encodeAtomSelf(e *xml.Encoder) error {
@@ -152,25 +155,25 @@ func (ch *PSPChannel) encodeAtomSelf(e *xml.Encoder) error {
 	return nil
 }
 
-func (ch *PSPChannel) encodeCoreText(e *xml.Encoder) error {
-	if err := ch.encodeTextIfSet(e, "title", ch.Title); err != nil {
+func (ch *PSPChannel) encodeCoreText(e *xml.Encoder, use bool) error {
+	if err := ch.encodeTextIfSet(e, "title", ch.Title, use); err != nil {
 		return err
 	}
-	if err := ch.encodeTextIfSet(e, "link", ch.Link); err != nil {
+	if err := ch.encodeTextIfSet(e, "link", ch.Link, use); err != nil {
 		return err
 	}
-	return ch.encodeTextIfSet(e, "description", ch.Description)
+	return ch.encodeTextIfSet(e, "description", ch.Description, use)
 }
 
-func (ch *PSPChannel) encodeDates(e *xml.Encoder) error {
-	if err := ch.encodeTextIfSet(e, "pubDate", ch.PubDate); err != nil {
+func (ch *PSPChannel) encodeDates(e *xml.Encoder, use bool) error {
+	if err := ch.encodeTextIfSet(e, "pubDate", ch.PubDate, use); err != nil {
 		return err
 	}
-	return ch.encodeTextIfSet(e, "lastBuildDate", ch.LastBuildDate)
+	return ch.encodeTextIfSet(e, "lastBuildDate", ch.LastBuildDate, use)
 }
 
-func (ch *PSPChannel) encodeItunesAuthor(e *xml.Encoder) error {
-	return ch.encodeTextIfSet(e, "itunes:author", ch.ItunesAuthor)
+func (ch *PSPChannel) encodeItunesAuthor(e *xml.Encoder, use bool) error {
+	return ch.encodeTextIfSet(e, "itunes:author", ch.ItunesAuthor, use)
 }
 
 func (ch *PSPChannel) encodeItunesExplicit(e *xml.Encoder) error {
@@ -184,8 +187,8 @@ func (ch *PSPChannel) encodeItunesExplicit(e *xml.Encoder) error {
 	return e.EncodeElement(val, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}})
 }
 
-func (ch *PSPChannel) encodeItunesType(e *xml.Encoder) error {
-	return ch.encodeTextIfSet(e, "itunes:type", ch.ItunesType)
+func (ch *PSPChannel) encodeItunesType(e *xml.Encoder, use bool) error {
+	return ch.encodeTextIfSet(e, "itunes:type", ch.ItunesType, use)
 }
 
 func (ch *PSPChannel) encodeItunesComplete(e *xml.Encoder) error {
@@ -360,6 +363,102 @@ type PSPItem struct {
 	Content *RssContent `xml:"content:encoded,omitempty"` // optional HTML content in CDATA (content namespace)
 	// Extra custom nodes
 	Extra []ExtensionNode `xml:",any"`
+}
+
+// MarshalXML customizes PSP item encoding to emit CDATA based on extensions (default on).
+func (it *PSPItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name regardless of caller-provided start
+	start.Name.Local = "item"
+	use := UseCDATAFromExtensions(it.Extra)
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	// Title
+	_ = encodeElementCDATA(e, "title", string(it.Title), use)
+	// Link
+	if strings.TrimSpace(it.Link) != "" {
+		if err := e.EncodeElement(it.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
+			return err
+		}
+	}
+	// Description
+	_ = encodeElementCDATA(e, "description", string(it.Description), use)
+	// Guid
+	if it.Guid != nil {
+		if err := e.Encode(it.Guid); err != nil {
+			return err
+		}
+	}
+	// PubDate
+	if strings.TrimSpace(it.PubDate) != "" {
+		if err := e.EncodeElement(it.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
+			return err
+		}
+	}
+	// Enclosure
+	if it.Enclosure != nil {
+		if err := e.Encode(it.Enclosure); err != nil {
+			return err
+		}
+	}
+	// Optional HTML content via content:encoded
+	if it.Content != nil && strings.TrimSpace(it.Content.Content) != "" {
+		_ = encodeElementCDATA(e, "content:encoded", it.Content.Content, use)
+	}
+	// iTunes fields
+	if s := strings.TrimSpace(it.ItunesDuration); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:duration"}}); err != nil {
+			return err
+		}
+	}
+	if it.ItunesImage != nil {
+		if err := e.Encode(it.ItunesImage); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(it.ItunesExplicit); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:explicit"}}); err != nil {
+			return err
+		}
+	}
+	if it.ItunesEpisode > 0 {
+		if err := e.EncodeElement(it.ItunesEpisode, xml.StartElement{Name: xml.Name{Local: "itunes:episode"}}); err != nil {
+			return err
+		}
+	}
+	if it.ItunesSeason > 0 {
+		if err := e.EncodeElement(it.ItunesSeason, xml.StartElement{Name: xml.Name{Local: "itunes:season"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(it.ItunesEpisodeType); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:episodeType"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(it.ItunesBlock); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "itunes:block"}}); err != nil {
+			return err
+		}
+	}
+	for _, tr := range it.Transcripts {
+		if tr == nil {
+			continue
+		}
+		if err := e.Encode(tr); err != nil {
+			return err
+		}
+	}
+	// Extra custom nodes
+	for _, n := range it.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
+		}
+	}
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
 }
 
 // PSP is a wrapper to marshal a Feed as PSP-1 RSS with required namespaces.

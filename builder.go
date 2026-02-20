@@ -150,6 +150,16 @@ func (b *FeedBuilder) WithExtensions(nodes ...ExtensionNode) *FeedBuilder {
 	return b
 }
 
+// WithXMLCDATA sets a feed-level preference for emitting CDATA in XML writers.
+// Default is enabled; pass false to disable CDATA and have content emitted as escaped chardata.
+func (b *FeedBuilder) WithXMLCDATA(enabled bool) *FeedBuilder {
+	val := "false"
+	if enabled {
+		val = "true"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_xml:cdata", Text: val})
+}
+
 // AddItem appends a built item to the feed.
 // If ib.Build() returns an error, it is ignored here and handled by profile validation in Build.
 func (b *FeedBuilder) AddItem(ib *ItemBuilder) *FeedBuilder {
@@ -586,6 +596,16 @@ func (b *ItemBuilder) WithExtensions(nodes ...ExtensionNode) *ItemBuilder {
 	}
 	b.item.Extensions = append(b.item.Extensions, nodes...)
 	return b
+}
+
+// WithXMLCDATA sets an item-level preference for emitting CDATA in XML writers.
+// Default is enabled; pass false to disable CDATA for this item scope.
+func (b *ItemBuilder) WithXMLCDATA(enabled bool) *ItemBuilder {
+	val := "false"
+	if enabled {
+		val = "true"
+	}
+	return b.WithExtensions(ExtensionNode{Name: "_xml:cdata", Text: val})
 }
 
 // Build finalizes the item with minimal strict checks:

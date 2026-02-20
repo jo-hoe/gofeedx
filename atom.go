@@ -22,26 +22,12 @@ type AtomSummary struct {
 	Type    string   `xml:"type,attr"`
 }
 
-// MarshalXML emits <summary> with CDATA when enabled, otherwise chardata.
-// Preserves the type attribute.
 func (s *AtomSummary) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if start.Name.Local == "" {
 		start.Name.Local = "summary"
 	}
 	val := UnwrapCDATA(s.Content)
-	if XMLCDATAEnabled() {
-		tmp := struct {
-			XMLName xml.Name `xml:"summary"`
-			Value   string   `xml:",cdata"`
-			Type    string   `xml:"type,attr"`
-		}{
-			XMLName: start.Name,
-			Value:   val,
-			Type:    s.Type,
-		}
-		return e.Encode(tmp)
-	}
-	// Fallback: encode element with type attr and chardata
+	// Encode element with type attr and chardata (CDATA decisions handled by AtomEntry MarshalXML)
 	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: s.Type})
 	if err := e.EncodeToken(start); err != nil {
 		return err
@@ -62,26 +48,12 @@ type AtomContent struct {
 
 
 
-// MarshalXML emits <content> with CDATA when enabled, otherwise chardata.
-// Preserves the type attribute.
 func (c *AtomContent) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	if start.Name.Local == "" {
 		start.Name.Local = "content"
 	}
 	val := UnwrapCDATA(c.Content)
-	if XMLCDATAEnabled() {
-		tmp := struct {
-			XMLName xml.Name `xml:"content"`
-			Value   string   `xml:",cdata"`
-			Type    string   `xml:"type,attr"`
-		}{
-			XMLName: start.Name,
-			Value:   val,
-			Type:    c.Type,
-		}
-		return e.Encode(tmp)
-	}
-	// Fallback: encode element with type attr and chardata
+	// Encode element with type attr and chardata (CDATA decisions handled by AtomEntry MarshalXML)
 	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: c.Type})
 	if err := e.EncodeToken(start); err != nil {
 		return err
@@ -160,6 +132,194 @@ func (a *Atom) FeedXml() interface{} {
 // FeedXml returns an XML-ready object for an AtomFeed object
 func (a *AtomFeed) FeedXml() interface{} {
 	return a
+}
+
+// encodeAtomTypedElement encodes an element with a 'type' attribute, using CDATA when requested.
+func encodeAtomTypedElement(e *xml.Encoder, name, typ, value string, useCDATA bool) error {
+	val := UnwrapCDATA(strings.TrimSpace(value))
+	start := xml.StartElement{Name: xml.Name{Local: name}, Attr: []xml.Attr{{Name: xml.Name{Local: "type"}, Value: typ}}}
+	if useCDATA && val != "" && strings.ContainsAny(val, "<&") {
+		tmp := struct {
+			XMLName xml.Name
+			Value   string `xml:",cdata"`
+			Type    string `xml:"type,attr"`
+		}{
+			XMLName: start.Name,
+			Value:   val,
+			Type:    typ,
+		}
+		return e.Encode(tmp)
+	}
+	// Fallback: chardata with type attr
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if val != "" {
+		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
+}
+
+// MarshalXML customizes Atom feed encoding to control CDATA without global state.
+func (f *AtomFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name
+	start.Name.Local = "feed"
+	// Preserve xmlns attribute
+	if s := strings.TrimSpace(f.Xmlns); s != "" {
+		start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "xmlns"}, Value: s})
+	}
+	use := UseCDATAFromExtensions(f.Extra)
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	// title, subtitle, rights, category as CDATA-eligible
+	_ = encodeElementCDATA(e, "title", string(f.Title), use)
+	if f.Link != nil {
+		if err := e.Encode(f.Link); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "subtitle", string(f.Subtitle), use)
+	if f.Author != nil {
+		if err := e.Encode(f.Author); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(f.Updated); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "updated"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(f.Id); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "id"}}); err != nil {
+			return err
+		}
+	}
+	// Entries with cascaded CDATA preference
+	for _, en := range f.Entries {
+		if en == nil {
+			continue
+		}
+		entryUse := CDATAUseForItem(use, en.Extra)
+		ov := "true"
+		if !entryUse {
+			ov = "false"
+		}
+		tmp := *en
+		tmp.Extra = append([]ExtensionNode{}, en.Extra...)
+		tmp.Extra = append(tmp.Extra, ExtensionNode{Name: "_xml:cdata", Text: ov})
+		if err := tmp.MarshalXML(e, xml.StartElement{Name: xml.Name{Local: "entry"}}); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "category", string(f.Category), use)
+	_ = encodeElementCDATA(e, "rights", string(f.Rights), use)
+	if s := strings.TrimSpace(f.Logo); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "logo"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(f.Icon); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "icon"}}); err != nil {
+			return err
+		}
+	}
+	if f.Contributor != nil {
+		if err := e.Encode(f.Contributor); err != nil {
+			return err
+		}
+	}
+	for _, n := range f.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
+		}
+	}
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
+}
+
+// MarshalXML customizes Atom entry encoding to control CDATA for title/summary/content.
+func (en *AtomEntry) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name
+	start.Name.Local = "entry"
+	// Preserve xmlns attribute when set
+	if s := strings.TrimSpace(en.Xmlns); s != "" {
+		start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "xmlns"}, Value: s})
+	}
+	use := UseCDATAFromExtensions(en.Extra)
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	// Title
+	_ = encodeElementCDATA(e, "title", string(en.Title), use)
+	// Links
+	for _, l := range en.Links {
+		if err := e.Encode(l); err != nil {
+			return err
+		}
+	}
+	// Source
+	if s := strings.TrimSpace(en.Source); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "source"}}); err != nil {
+			return err
+		}
+	}
+	// Author
+	if en.Author != nil {
+		if err := e.Encode(en.Author); err != nil {
+			return err
+		}
+	}
+	// Summary and Content with type attr
+	if en.Summary != nil {
+		if err := encodeAtomTypedElement(e, "summary", en.Summary.Type, en.Summary.Content, use); err != nil {
+			return err
+		}
+	}
+	if en.Content != nil {
+		if err := encodeAtomTypedElement(e, "content", en.Content.Type, en.Content.Content, use); err != nil {
+			return err
+		}
+	}
+	// Id, Updated, Published
+	if s := strings.TrimSpace(en.Id); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "id"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(en.Updated); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "updated"}}); err != nil {
+			return err
+		}
+	}
+	if s := strings.TrimSpace(en.Published); s != "" {
+		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "published"}}); err != nil {
+			return err
+		}
+	}
+	// Category, Rights
+	_ = encodeElementCDATA(e, "category", string(en.Category), use)
+	_ = encodeElementCDATA(e, "rights", string(en.Rights), use)
+	// Contributor
+	if en.Contributor != nil {
+		if err := e.Encode(en.Contributor); err != nil {
+			return err
+		}
+	}
+	// Extra nodes
+	for _, n := range en.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
+		}
+	}
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
 }
 
 // Helpers to reduce cyclomatic complexity

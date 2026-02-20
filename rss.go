@@ -18,30 +18,11 @@ type RssFeedXml struct {
 	Channel          *RssFeed `xml:"channel"`
 }
 
- // RssContent holds HTML content for content:encoded and emits CDATA when enabled.
+ // RssContent holds HTML content for content:encoded.
  type RssContent struct {
  	XMLName xml.Name `xml:"content:encoded"`
  	Content string
  }
- 
- // MarshalXML emits <content:encoded> with CDATA when enabled, otherwise chardata.
- func (rc *RssContent) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	// Force correct element name regardless of caller-provided start
-	start.Name.Local = "content:encoded"
-	// Idempotently unwrap existing CDATA
-	val := UnwrapCDATA(rc.Content)
-	if XMLCDATAEnabled() {
-		tmp := struct {
-			XMLName xml.Name `xml:"content:encoded"`
-			Value   string   `xml:",cdata"`
-		}{
-			XMLName: start.Name,
-			Value:   val,
-		}
-		return e.Encode(tmp)
-	}
-	return e.EncodeElement(val, start)
-}
 
 type RssImage struct {
 	XMLName xml.Name `xml:"image"`
@@ -112,6 +93,23 @@ type RssFeed struct {
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
 type Rss struct {
 	*Feed
+}
+
+// useCDATAFromExtras returns true by default; overridden when an "_xml:cdata" extension is present.
+func useCDATAFromExtras(exts []ExtensionNode) bool {
+	use := true
+	for _, n := range exts {
+		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			t := strings.ToLower(strings.TrimSpace(n.Text))
+			if t == "false" {
+				return false
+			}
+			if t == "true" {
+				return true
+			}
+		}
+	}
+	return use
 }
 
 // FeedXml returns an XML-Ready object for an Rss object.
@@ -375,6 +373,153 @@ func newRssItem(i *Item) *RssItem {
 		}
 	}
 	return item
+}
+
+// MarshalXML customizes RSS item encoding to emit CDATA based on extensions (default on).
+func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name regardless of caller-provided start
+	start.Name.Local = "item"
+	itemUse := useCDATAFromExtras(it.Extra)
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	// Title
+	_ = encodeElementCDATA(e, "title", string(it.Title), itemUse)
+	// Link
+	if strings.TrimSpace(it.Link) != "" {
+		if err := e.EncodeElement(it.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
+			return err
+		}
+	}
+	// Source
+	if strings.TrimSpace(it.Source) != "" {
+		if err := e.EncodeElement(it.Source, xml.StartElement{Name: xml.Name{Local: "source"}}); err != nil {
+			return err
+		}
+	}
+	// Author
+	_ = encodeElementCDATA(e, "author", string(it.Author), itemUse)
+	// Description
+	_ = encodeElementCDATA(e, "description", string(it.Description), itemUse)
+	// content:encoded
+	if it.Content != nil && strings.TrimSpace(it.Content.Content) != "" {
+		_ = encodeElementCDATA(e, "content:encoded", it.Content.Content, itemUse)
+	}
+	// Guid
+	if it.Guid != nil {
+		if err := e.Encode(it.Guid); err != nil {
+			return err
+		}
+	}
+	// PubDate
+	if strings.TrimSpace(it.PubDate) != "" {
+		if err := e.EncodeElement(it.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
+			return err
+		}
+	}
+	// Enclosure
+	if it.Enclosure != nil {
+		if err := e.Encode(it.Enclosure); err != nil {
+			return err
+		}
+	}
+	// Category, Comments
+	_ = encodeElementCDATA(e, "category", string(it.Category), itemUse)
+	_ = encodeElementCDATA(e, "comments", string(it.Comments), itemUse)
+	// Extra nodes
+	for _, n := range it.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
+		}
+	}
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
+}
+
+// MarshalXML customizes RSS channel encoding to emit CDATA based on extensions (default on).
+func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name regardless of caller-provided start
+	start.Name.Local = "channel"
+	chUse := useCDATAFromExtras(ch.Extra)
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	// Core fields
+	_ = encodeElementCDATA(e, "title", string(ch.Title), chUse)
+	if strings.TrimSpace(ch.Link) != "" {
+		if err := e.EncodeElement(ch.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "description", string(ch.Description), chUse)
+
+	_ = encodeElementCDATA(e, "managingEditor", string(ch.ManagingEditor), chUse)
+	if strings.TrimSpace(ch.LastBuildDate) != "" {
+		if err := e.EncodeElement(ch.LastBuildDate, xml.StartElement{Name: xml.Name{Local: "lastBuildDate"}}); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(ch.PubDate) != "" {
+		if err := e.EncodeElement(ch.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
+			return err
+		}
+	}
+	for _, it := range ch.Items {
+		if it == nil {
+			continue
+		}
+		// Cascade channel preference to item (item may override via its own _xml:cdata extension)
+		itemUse := CDATAUseForItem(chUse, it.Extra)
+		ov := "true"
+		if !itemUse {
+			ov = "false"
+		}
+		// Shallow-copy item and append override extension for this encoding only
+		tmp := *it
+		tmp.Extra = append([]ExtensionNode{}, it.Extra...)
+		tmp.Extra = append(tmp.Extra, ExtensionNode{Name: "_xml:cdata", Text: ov})
+		if err := tmp.MarshalXML(e, xml.StartElement{Name: xml.Name{Local: "item"}}); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "copyright", string(ch.Copyright), chUse)
+	if ch.Image != nil {
+		if err := e.Encode(ch.Image); err != nil {
+			return err
+		}
+	}
+	if strings.TrimSpace(ch.Language) != "" {
+		if err := e.EncodeElement(ch.Language, xml.StartElement{Name: xml.Name{Local: "language"}}); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "category", string(ch.Category), chUse)
+
+	_ = encodeElementCDATA(e, "webMaster", string(ch.WebMaster), chUse)
+	_ = encodeElementCDATA(e, "generator", string(ch.Generator), chUse)
+	_ = encodeElementCDATA(e, "docs", string(ch.Docs), chUse)
+	_ = encodeElementCDATA(e, "cloud", string(ch.Cloud), chUse)
+	if ch.Ttl > 0 {
+		if err := e.EncodeElement(ch.Ttl, xml.StartElement{Name: xml.Name{Local: "ttl"}}); err != nil {
+			return err
+		}
+	}
+	_ = encodeElementCDATA(e, "rating", string(ch.Rating), chUse)
+	_ = encodeElementCDATA(e, "skipHours", string(ch.SkipHours), chUse)
+	_ = encodeElementCDATA(e, "skipDays", string(ch.SkipDays), chUse)
+
+	for _, n := range ch.Extra {
+		if err := e.Encode(n); err != nil {
+			return err
+		}
+	}
+
+	if err := e.EncodeToken(start.End()); err != nil {
+		return err
+	}
+	return e.Flush()
 }
 
 // ValidateRSS enforces basic RSS 2.0.1 requirements on the generic Feed.

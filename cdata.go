@@ -5,21 +5,6 @@ import (
 	"strings"
 )
 
-// Global toggle for emitting CDATA when encoding XML content.
-// Default: enabled (true) following common patterns where rich text fields
-// are wrapped in CDATA to avoid escaping HTML.
-var xmlCDATAEnabled = true
-
-// SetXMLCDATAEnabled toggles whether CDATA is emitted for eligible text fields.
-func SetXMLCDATAEnabled(enabled bool) {
-	xmlCDATAEnabled = enabled
-}
-
-// XMLCDATAEnabled reports whether CDATA emission is currently enabled.
-func XMLCDATAEnabled() bool {
-	return xmlCDATAEnabled
-}
-
 // UnwrapCDATA removes a single top-level <![CDATA[ ... ]]> wrapper when present.
 // Idempotent: returns the original string when no wrapper exists.
 func UnwrapCDATA(s string) string {
@@ -31,19 +16,22 @@ func UnwrapCDATA(s string) string {
 	if strings.HasPrefix(trimmed, "<![CDATA[") && strings.HasSuffix(trimmed, "]]>") {
 		return trimmed[len("<![CDATA[") : len(trimmed)-len("]]>")]
 	}
-	// HTML-escaped CDATA wrapper (rare): <![CDATA[ ... ]]>
-	if strings.HasPrefix(trimmed, "<![CDATA[") && strings.HasSuffix(trimmed, "]]>") {
-		return trimmed[len("<![CDATA[") : len(trimmed)-len("]]>")]
-	}
 	return s
 }
 
-// CData encodes its value as element text, using CDATA when enabled.
-// Use this for fields that may contain rich text (HTML) to avoid escaping.
+// CData is a string alias used by writer structs. Its MarshalXML intentionally
+// avoids any CDATA decisions so that writers can control CDATA emission explicitly
+// without relying on package-global state.
 type CData string
 
-// needsCDATA decides if CDATA is beneficial based on content containing characters
-// that would otherwise be escaped (e.g., '<' or '&').
+// MarshalXML encodes as normal element text (escaped as needed).
+// Writers should call encodeElementCDATA to control CDATA behavior.
+func (c CData) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	return e.EncodeElement(string(c), start)
+}
+
+// needsCDATA reports whether CDATA is beneficial based on content containing
+// characters that would otherwise be escaped (e.g., '<' or '&').
 func needsCDATA(s string) bool {
 	if s == "" {
 		return false
@@ -51,33 +39,63 @@ func needsCDATA(s string) bool {
 	return strings.ContainsAny(s, "<&")
 }
 
-// MarshalXML emits the element using CDATA when enabled and content needs it,
-// otherwise normal character data.
-func (c CData) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	value := UnwrapCDATA(string(c))
-	if XMLCDATAEnabled() && needsCDATA(value) {
-		// Encode element with CDATA content via a temporary struct that uses the ",cdata" tag.
-		tmp := struct {
-			XMLName xml.Name
-			Value   string `xml:",cdata"`
-		}{
-			XMLName: start.Name,
-			Value:   value,
-		}
-		return e.Encode(tmp)
-	}
-	// Fallback to normal element text
-	return e.EncodeElement(value, start)
-}
-
-// encodeElementCDATA encodes name=value as an element. It delegates to CharOrCDATA
-// so that when CDATA is enabled (and content needs it), CDATA is emitted; otherwise
-// normal character data is emitted. Idempotent with already-wrapped CDATA input.
-func encodeElementCDATA(e *xml.Encoder, name string, value string) error {
+// encodeElementCDATA encodes name=value as an element, emitting CDATA when useCDATA is true
+// and the content needs it; otherwise normal character data. Idempotent with already-wrapped input.
+func encodeElementCDATA(e *xml.Encoder, name string, value string, useCDATA bool) error {
 	s := strings.TrimSpace(value)
 	if s == "" {
 		return nil
 	}
 	s = UnwrapCDATA(s)
-	return e.EncodeElement(CData(s), xml.StartElement{Name: xml.Name{Local: name}})
+	start := xml.StartElement{Name: xml.Name{Local: name}}
+	if useCDATA && needsCDATA(s) {
+		tmp := struct {
+			XMLName xml.Name
+			Value   string `xml:",cdata"`
+		}{
+			XMLName: start.Name,
+			Value:   s,
+		}
+		return e.Encode(tmp)
+	}
+	return e.EncodeElement(s, start)
+}
+
+// UseCDATAFromExtensions returns the CDATA preference from a list of extensions.
+// Default: true (enabled). Overridden when an "_xml:cdata" node with "true"/"false" is present.
+func UseCDATAFromExtensions(exts []ExtensionNode) bool {
+	use := true
+	for _, n := range exts {
+		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			t := strings.ToLower(strings.TrimSpace(n.Text))
+			if t == "false" {
+				return false
+			}
+			if t == "true" {
+				return true
+			}
+		}
+	}
+	return use
+}
+
+// CDATAUseForItem returns the CDATA preference for an item scope, deriving from the parent
+// when no explicit override exists in the provided extensions.
+func CDATAUseForItem(parentUse bool, exts []ExtensionNode) bool {
+	for _, n := range exts {
+		if strings.EqualFold(strings.TrimSpace(n.Name), "_xml:cdata") {
+			return UseCDATAFromExtensions(exts)
+		}
+	}
+	return parentUse
+}
+
+// UseCDATAForFeed returns the CDATA preference for a feed:
+// - Default: true (enabled)
+// - Can be overridden by a feed-level extension node: Name "_xml:cdata" with Text "true"/"false"
+func UseCDATAForFeed(f *Feed) bool {
+	if f == nil {
+		return true
+	}
+	return UseCDATAFromExtensions(f.Extensions)
 }

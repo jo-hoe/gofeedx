@@ -34,9 +34,6 @@ func buildFeedForCDATA() *gofeedx.Feed {
 }
 
 func TestCDATA_DefaultEnabled_RSS_Atom(t *testing.T) {
-	old := gofeedx.XMLCDATAEnabled()
-	gofeedx.SetXMLCDATAEnabled(true)
-	defer gofeedx.SetXMLCDATAEnabled(old)
 
 	f := buildFeedForCDATA()
 
@@ -73,11 +70,9 @@ func TestCDATA_DefaultEnabled_RSS_Atom(t *testing.T) {
 }
 
 func TestCDATA_Disabled_Escapes_RSS_Atom(t *testing.T) {
-	old := gofeedx.XMLCDATAEnabled()
-	gofeedx.SetXMLCDATAEnabled(false)
-	defer gofeedx.SetXMLCDATAEnabled(old)
-
+	// Disable CDATA via builder/extension
 	f := buildFeedForCDATA()
+	f.Extensions = append(f.Extensions, gofeedx.ExtensionNode{Name: "_xml:cdata", Text: "false"})
 
 	// RSS asserts
 	rssXML, err := gofeedx.ToRSS(f)
@@ -120,9 +115,6 @@ func TestCDATA_Disabled_Escapes_RSS_Atom(t *testing.T) {
 }
 
 func TestCDATA_AlreadyWrapped_NotDoubleWrapped(t *testing.T) {
-	old := gofeedx.XMLCDATAEnabled()
-	gofeedx.SetXMLCDATAEnabled(true)
-	defer gofeedx.SetXMLCDATAEnabled(old)
 
 	now := time.Now().UTC()
 	f := &gofeedx.Feed{

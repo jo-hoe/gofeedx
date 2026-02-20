@@ -12,17 +12,21 @@ type XmlFeed interface {
 	FeedXml() interface{}
 }
 
-// ToXML marshals a feed wrapper to an XML string with the standard header (no trailing newline).
+ // ToXML marshals a feed wrapper to an XML string with the standard header (no trailing newline).
 func ToXML(feed XmlFeed) (string, error) {
 	x := feed.FeedXml()
-	data, err := xml.MarshalIndent(x, "", "  ")
-	if err != nil {
+	// Use xml.Encoder to ensure MarshalXML methods on writers are invoked
+	var buf bytes.Buffer
+	// Trim the newline from the default header
+	buf.WriteString(xml.Header[:len(xml.Header)-1])
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+	if err := enc.Encode(x); err != nil {
 		return "", err
 	}
-	// Trim the newline from the default header
-	var buf bytes.Buffer
-	buf.WriteString(xml.Header[:len(xml.Header)-1])
-	buf.Write(data)
+	if err := enc.Flush(); err != nil {
+		return "", err
+	}
 	return buf.String(), nil
 }
 
