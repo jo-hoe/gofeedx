@@ -22,23 +22,6 @@ type AtomSummary struct {
 	Type    string   `xml:"type,attr"`
 }
 
-func (s *AtomSummary) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if start.Name.Local == "" {
-		start.Name.Local = "summary"
-	}
-	val := UnwrapCDATA(s.Content)
-	// Encode element with type attr and chardata (CDATA decisions handled by AtomEntry MarshalXML)
-	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: s.Type})
-	if err := e.EncodeToken(start); err != nil {
-		return err
-	}
-	if val != "" {
-		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
-			return err
-		}
-	}
-	return e.EncodeToken(start.End())
-}
 
 type AtomContent struct {
 	XMLName xml.Name `xml:"content"`
@@ -48,23 +31,6 @@ type AtomContent struct {
 
 
 
-func (c *AtomContent) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	if start.Name.Local == "" {
-		start.Name.Local = "content"
-	}
-	val := UnwrapCDATA(c.Content)
-	// Encode element with type attr and chardata (CDATA decisions handled by AtomEntry MarshalXML)
-	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: c.Type})
-	if err := e.EncodeToken(start); err != nil {
-		return err
-	}
-	if val != "" {
-		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
-			return err
-		}
-	}
-	return e.EncodeToken(start.End())
-}
 
 type AtomAuthor struct {
 	XMLName xml.Name `xml:"author"`
@@ -187,15 +153,11 @@ func (f *AtomFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
-	if s := strings.TrimSpace(f.Updated); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "updated"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "updated", f.Updated); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(f.Id); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "id"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "id", f.Id); err != nil {
+		return err
 	}
 	// Entries with cascaded CDATA preference
 	for _, en := range f.Entries {
@@ -203,28 +165,19 @@ func (f *AtomFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			continue
 		}
 		entryUse := CDATAUseForItem(use, en.Extra)
-		ov := "true"
-		if !entryUse {
-			ov = "false"
-		}
 		tmp := *en
-		tmp.Extra = append([]ExtensionNode{}, en.Extra...)
-		tmp.Extra = append(tmp.Extra, ExtensionNode{Name: "_xml:cdata", Text: ov})
+		tmp.Extra = WithCDATAOverride(en.Extra, entryUse)
 		if err := tmp.MarshalXML(e, xml.StartElement{Name: xml.Name{Local: "entry"}}); err != nil {
 			return err
 		}
 	}
 	_ = encodeElementCDATA(e, "category", string(f.Category), use)
 	_ = encodeElementCDATA(e, "rights", string(f.Rights), use)
-	if s := strings.TrimSpace(f.Logo); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "logo"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "logo", f.Logo); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(f.Icon); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "icon"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "icon", f.Icon); err != nil {
+		return err
 	}
 	if f.Contributor != nil {
 		if err := e.Encode(f.Contributor); err != nil {
@@ -263,10 +216,8 @@ func (en *AtomEntry) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 	// Source
-	if s := strings.TrimSpace(en.Source); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "source"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "source", en.Source); err != nil {
+		return err
 	}
 	// Author
 	if en.Author != nil {
@@ -286,20 +237,14 @@ func (en *AtomEntry) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 	// Id, Updated, Published
-	if s := strings.TrimSpace(en.Id); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "id"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "id", en.Id); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(en.Updated); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "updated"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "updated", en.Updated); err != nil {
+		return err
 	}
-	if s := strings.TrimSpace(en.Published); s != "" {
-		if err := e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: "published"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "published", en.Published); err != nil {
+		return err
 	}
 	// Category, Rights
 	_ = encodeElementCDATA(e, "category", string(en.Category), use)

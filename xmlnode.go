@@ -3,6 +3,7 @@ package gofeedx
 import (
 	"encoding/xml"
 	"sort"
+	"strings"
 )
 
 // ExtensionNode represents a generic extension element that can be injected into channel/feed
@@ -74,4 +75,20 @@ func (n ExtensionNode) MarshalXML(e *xml.Encoder, _ xml.StartElement) error {
 		return err
 	}
 	return e.Flush()
+}
+
+// encodeElementIfSet encodes an element <name>value</name> when value is non-empty (after trimming).
+func encodeElementIfSet(e *xml.Encoder, name, value string) error {
+	if s := strings.TrimSpace(value); s != "" {
+		return e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: name}})
+	}
+	return nil
+}
+
+// encodeIntElementIfPositive encodes an element <name>n</name> when n > 0.
+func encodeIntElementIfPositive(e *xml.Encoder, name string, n int) error {
+	if n > 0 {
+		return e.EncodeElement(n, xml.StartElement{Name: xml.Name{Local: name}})
+	}
+	return nil
 }

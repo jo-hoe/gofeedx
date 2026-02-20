@@ -370,16 +370,12 @@ func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	// Title
 	_ = encodeElementCDATA(e, "title", string(it.Title), itemUse)
 	// Link
-	if strings.TrimSpace(it.Link) != "" {
-		if err := e.EncodeElement(it.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "link", it.Link); err != nil {
+		return err
 	}
 	// Source
-	if strings.TrimSpace(it.Source) != "" {
-		if err := e.EncodeElement(it.Source, xml.StartElement{Name: xml.Name{Local: "source"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "source", it.Source); err != nil {
+		return err
 	}
 	// Author
 	_ = encodeElementCDATA(e, "author", string(it.Author), itemUse)
@@ -396,10 +392,8 @@ func (it *RssItem) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 		}
 	}
 	// PubDate
-	if strings.TrimSpace(it.PubDate) != "" {
-		if err := e.EncodeElement(it.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "pubDate", it.PubDate); err != nil {
+		return err
 	}
 	// Enclosure
 	if it.Enclosure != nil {
@@ -432,23 +426,17 @@ func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	}
 	// Core fields
 	_ = encodeElementCDATA(e, "title", string(ch.Title), chUse)
-	if strings.TrimSpace(ch.Link) != "" {
-		if err := e.EncodeElement(ch.Link, xml.StartElement{Name: xml.Name{Local: "link"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "link", ch.Link); err != nil {
+		return err
 	}
 	_ = encodeElementCDATA(e, "description", string(ch.Description), chUse)
 
 	_ = encodeElementCDATA(e, "managingEditor", string(ch.ManagingEditor), chUse)
-	if strings.TrimSpace(ch.LastBuildDate) != "" {
-		if err := e.EncodeElement(ch.LastBuildDate, xml.StartElement{Name: xml.Name{Local: "lastBuildDate"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "lastBuildDate", ch.LastBuildDate); err != nil {
+		return err
 	}
-	if strings.TrimSpace(ch.PubDate) != "" {
-		if err := e.EncodeElement(ch.PubDate, xml.StartElement{Name: xml.Name{Local: "pubDate"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "pubDate", ch.PubDate); err != nil {
+		return err
 	}
 	for _, it := range ch.Items {
 		if it == nil {
@@ -468,10 +456,8 @@ func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 			return err
 		}
 	}
-	if strings.TrimSpace(ch.Language) != "" {
-		if err := e.EncodeElement(ch.Language, xml.StartElement{Name: xml.Name{Local: "language"}}); err != nil {
-			return err
-		}
+	if err := encodeElementIfSet(e, "language", ch.Language); err != nil {
+		return err
 	}
 	_ = encodeElementCDATA(e, "category", string(ch.Category), chUse)
 
@@ -479,10 +465,8 @@ func (ch *RssFeed) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 	_ = encodeElementCDATA(e, "generator", string(ch.Generator), chUse)
 	_ = encodeElementCDATA(e, "docs", string(ch.Docs), chUse)
 	_ = encodeElementCDATA(e, "cloud", string(ch.Cloud), chUse)
-	if ch.Ttl > 0 {
-		if err := e.EncodeElement(ch.Ttl, xml.StartElement{Name: xml.Name{Local: "ttl"}}); err != nil {
-			return err
-		}
+	if err := encodeIntElementIfPositive(e, "ttl", ch.Ttl); err != nil {
+		return err
 	}
 	_ = encodeElementCDATA(e, "rating", string(ch.Rating), chUse)
 	_ = encodeElementCDATA(e, "skipHours", string(ch.SkipHours), chUse)
