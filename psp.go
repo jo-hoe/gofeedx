@@ -136,7 +136,7 @@ func (ch *PSPChannel) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
 
 func (ch *PSPChannel) encodeTextIfSet(e *xml.Encoder, name, value string) error {
 	if s := strings.TrimSpace(value); s != "" {
-		return e.EncodeElement(s, xml.StartElement{Name: xml.Name{Local: name}})
+		return encodeElementCDATA(e, name, s)
 	}
 	return nil
 }
@@ -341,19 +341,19 @@ OPTIONAL (supported when relevant):
 - <itunes:block>                     (ItunesBlock) — "yes"
 */
 type PSPItem struct {
-	Title             string           `xml:"title"`                        // required
-	Link              string           `xml:"link,omitempty"`               // recommended
-	Description       string           `xml:"description,omitempty"`        // recommended (wrap HTML in CDATA)
-	Guid              *RssGuid         `xml:"guid"`                         // required
-	PubDate           string           `xml:"pubDate,omitempty"`            // recommended RFC2822
-	Enclosure         *RssEnclosure    `xml:"enclosure"`                    // required
-	ItunesDuration    string           `xml:"itunes:duration,omitempty"`    // seconds
-	ItunesImage       *ItunesImage     `xml:"itunes:image,omitempty"`       // item artwork
-	ItunesExplicit    string           `xml:"itunes:explicit,omitempty"`    // "true" | "false"
-	ItunesEpisode     int              `xml:"itunes:episode,omitempty"`     // > 0
-	ItunesSeason      int              `xml:"itunes:season,omitempty"`      // > 0
-	ItunesEpisodeType string           `xml:"itunes:episodeType,omitempty"` // "full" | "trailer" | "bonus"
-	ItunesBlock       string           `xml:"itunes:block,omitempty"`       // "yes"
+	Title             CData     `xml:"title"`                        // required
+	Link              string          `xml:"link,omitempty"`               // recommended
+	Description       CData     `xml:"description,omitempty"`        // recommended (wrap HTML in CDATA)
+	Guid              *RssGuid        `xml:"guid"`                         // required
+	PubDate           string          `xml:"pubDate,omitempty"`            // recommended RFC2822
+	Enclosure         *RssEnclosure   `xml:"enclosure"`                    // required
+	ItunesDuration    string          `xml:"itunes:duration,omitempty"`    // seconds
+	ItunesImage       *ItunesImage    `xml:"itunes:image,omitempty"`       // item artwork
+	ItunesExplicit    string          `xml:"itunes:explicit,omitempty"`    // "true" | "false"
+	ItunesEpisode     int             `xml:"itunes:episode,omitempty"`     // > 0
+	ItunesSeason      int             `xml:"itunes:season,omitempty"`      // > 0
+	ItunesEpisodeType string          `xml:"itunes:episodeType,omitempty"` // "full" | "trailer" | "bonus"
+	ItunesBlock       string          `xml:"itunes:block,omitempty"`       // "yes"
 	Transcripts       []*PSPTranscript `xml:"podcast:transcript,omitempty"` // multiple allowed
 
 	XMLName xml.Name    `xml:"item"`
@@ -741,8 +741,8 @@ func itemHandlePodcastTranscript(it *PSPItem, n ExtensionNode) bool {
 
 func (p *PSP) buildItem(it *Item) *PSPItem {
 	pi := &PSPItem{
-		Title:       it.Title,
-		Description: it.Description,
+		Title:       CData(it.Title),
+		Description: CData(it.Description),
 		PubDate:     anyTimeFormat(time.RFC1123Z, it.Created, it.Updated),
 	}
 	if it.Link != nil {

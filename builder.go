@@ -357,8 +357,10 @@ func builderStrictChecks(f *Feed) error {
 	if strings.TrimSpace(f.Title) == "" {
 		return errors.New("builder: feed title required")
 	}
-	// Note: item count requirements are enforced by profile-specific validators (e.g., PSP).
-	// This builder-level check allows empty feeds for formats that permit them (RSS/Atom/JSON).
+	// In strict mode, require at least one item to be present after filtering.
+	if len(f.Items) == 0 {
+		return errors.New("builder: at least one item required")
+	}
 	// enclosure checks delegated to ItemBuilder strict mode; feed-level has none
 	return nil
 }

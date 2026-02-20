@@ -18,14 +18,80 @@ type AtomPerson struct {
 
 type AtomSummary struct {
 	XMLName xml.Name `xml:"summary"`
-	Content string   `xml:",chardata"`
+	Content string
 	Type    string   `xml:"type,attr"`
+}
+
+// MarshalXML emits <summary> with CDATA when enabled, otherwise chardata.
+// Preserves the type attribute.
+func (s *AtomSummary) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if start.Name.Local == "" {
+		start.Name.Local = "summary"
+	}
+	val := UnwrapCDATA(s.Content)
+	if XMLCDATAEnabled() {
+		tmp := struct {
+			XMLName xml.Name `xml:"summary"`
+			Value   string   `xml:",cdata"`
+			Type    string   `xml:"type,attr"`
+		}{
+			XMLName: start.Name,
+			Value:   val,
+			Type:    s.Type,
+		}
+		return e.Encode(tmp)
+	}
+	// Fallback: encode element with type attr and chardata
+	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: s.Type})
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if val != "" {
+		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 type AtomContent struct {
 	XMLName xml.Name `xml:"content"`
-	Content string   `xml:",chardata"`
+	Content string
 	Type    string   `xml:"type,attr"`
+}
+
+
+
+// MarshalXML emits <content> with CDATA when enabled, otherwise chardata.
+// Preserves the type attribute.
+func (c *AtomContent) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	if start.Name.Local == "" {
+		start.Name.Local = "content"
+	}
+	val := UnwrapCDATA(c.Content)
+	if XMLCDATAEnabled() {
+		tmp := struct {
+			XMLName xml.Name `xml:"content"`
+			Value   string   `xml:",cdata"`
+			Type    string   `xml:"type,attr"`
+		}{
+			XMLName: start.Name,
+			Value:   val,
+			Type:    c.Type,
+		}
+		return e.Encode(tmp)
+	}
+	// Fallback: encode element with type attr and chardata
+	start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: "type"}, Value: c.Type})
+	if err := e.EncodeToken(start); err != nil {
+		return err
+	}
+	if val != "" {
+		if err := e.EncodeToken(xml.CharData([]byte(val))); err != nil {
+			return err
+		}
+	}
+	return e.EncodeToken(start.End())
 }
 
 type AtomAuthor struct {
@@ -47,7 +113,7 @@ type AtomLink struct {
 }
 
 type AtomEntry struct {
-	Title       string `xml:"title"` // required
+	Title       CData `xml:"title"` // required
 	Links       []AtomLink
 	Source      string      `xml:"source,omitempty"`
 	Author      *AtomAuthor // required if feed lacks an author
@@ -58,22 +124,22 @@ type AtomEntry struct {
 	Published   string   `xml:"published,omitempty"`
 	XMLName     xml.Name `xml:"entry"`
 	Xmlns       string   `xml:"xmlns,attr,omitempty"`
-	Category    string   `xml:"category,omitempty"`
-	Rights      string   `xml:"rights,omitempty"`
+	Category    CData   `xml:"category,omitempty"`
+	Rights      CData   `xml:"rights,omitempty"`
 	Contributor *AtomContributor
 	Extra       []ExtensionNode `xml:",any"` // custom extension nodes
 }
 
 type AtomFeed struct {
-	Title       string `xml:"title"` // required
+	Title       CData `xml:"title"` // required
 	Link        *AtomLink
-	Subtitle    string       `xml:"subtitle,omitempty"`
+	Subtitle    CData  `xml:"subtitle,omitempty"`
 	Author      *AtomAuthor  `xml:"author,omitempty"`
 	Updated     string       `xml:"updated"` // required
 	Id          string       `xml:"id"`      // required
 	Entries     []*AtomEntry `xml:"entry"`
-	Category    string       `xml:"category,omitempty"`
-	Rights      string       `xml:"rights,omitempty"` // copyright used
+	Category    CData  `xml:"category,omitempty"`
+	Rights      CData  `xml:"rights,omitempty"` // copyright used
 	Logo        string       `xml:"logo,omitempty"`
 	XMLName     xml.Name     `xml:"feed"`
 	Xmlns       string       `xml:"xmlns,attr"`
@@ -106,12 +172,12 @@ func atomFeedBaseFromFeed(a *Atom) *AtomFeed {
 	}
 	return &AtomFeed{
 		Xmlns:    atomNS,
-		Title:    a.Title,
+		Title:    CData(a.Title),
 		Link:     &AtomLink{Href: link.Href, Rel: "alternate"},
-		Subtitle: a.Description,
+		Subtitle: CData(a.Description),
 		Id:       firstNonEmpty(a.ID, link.Href),
 		Updated:  updated,
-		Rights:   a.Copyright,
+		Rights:   CData(a.Copyright),
 	}
 }
 
@@ -136,7 +202,7 @@ func setAtomAuthorFromFeed(feed *AtomFeed, author *Author) {
 
 func setFirstCategory(feed *AtomFeed, cats []*Category) {
 	if len(cats) > 0 && cats[0] != nil && cats[0].Text != "" {
-		feed.Category = cats[0].Text
+		feed.Category = CData(cats[0].Text)
 	}
 }
 
@@ -184,7 +250,7 @@ func mapAtomFeedExtensions(feed *AtomFeed, exts []ExtensionNode) {
 		},
 		"_atom:rights": func(f *AtomFeed, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				f.Rights = s
+				f.Rights = CData(s)
 				return true
 			}
 			return false
@@ -253,7 +319,7 @@ func atomEntryBase(i *Item) *AtomEntry {
 		link = &Link{}
 	}
 	x := &AtomEntry{
-		Title:   i.Title,
+		Title:   CData(i.Title),
 		Links:   []AtomLink{{Href: link.Href, Rel: "alternate"}},
 		Id:      id,
 		Updated: anyTimeFormat(time.RFC3339, i.Updated, i.Created),
@@ -297,14 +363,14 @@ func mapAtomEntryExtensions(x *AtomEntry, exts []ExtensionNode) {
 	handlers := map[string]handler{
 		"_atom:category": func(en *AtomEntry, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				en.Category = s
+				en.Category = CData(s)
 				return true
 			}
 			return false
 		},
 		"_atom:rights": func(en *AtomEntry, n ExtensionNode) bool {
 			if s := strings.TrimSpace(n.Text); s != "" {
-				en.Rights = s
+				en.Rights = CData(s)
 				return true
 			}
 			return false

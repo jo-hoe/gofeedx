@@ -18,10 +18,29 @@ type RssFeedXml struct {
 	Channel          *RssFeed `xml:"channel"`
 }
 
-// RssContent holds HTML content in CDATA via content:encoded.
-type RssContent struct {
-	XMLName xml.Name `xml:"content:encoded"`
-	Content string   `xml:",cdata"`
+ // RssContent holds HTML content for content:encoded and emits CDATA when enabled.
+ type RssContent struct {
+ 	XMLName xml.Name `xml:"content:encoded"`
+ 	Content string
+ }
+ 
+ // MarshalXML emits <content:encoded> with CDATA when enabled, otherwise chardata.
+ func (rc *RssContent) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	// Force correct element name regardless of caller-provided start
+	start.Name.Local = "content:encoded"
+	// Idempotently unwrap existing CDATA
+	val := UnwrapCDATA(rc.Content)
+	if XMLCDATAEnabled() {
+		tmp := struct {
+			XMLName xml.Name `xml:"content:encoded"`
+			Value   string   `xml:",cdata"`
+		}{
+			XMLName: start.Name,
+			Value:   val,
+		}
+		return e.Encode(tmp)
+	}
+	return e.EncodeElement(val, start)
 }
 
 type RssImage struct {
@@ -47,45 +66,48 @@ type RssGuid struct {
 }
 
 type RssItem struct {
-	Title       string      `xml:"title"` // optional (spec requires title or description)
+	Title       CData `xml:"title"` // optional (spec requires title or description)
 	Link        string      `xml:"link"`  // optional
 	Source      string      `xml:"source,omitempty"`
-	Author      string      `xml:"author,omitempty"`
-	Description string      `xml:"description"` // optional
+	Author      CData `xml:"author,omitempty"`
+	Description CData `xml:"description"` // optional
 	Content     *RssContent `xml:"content:encoded,omitempty"`
 	Guid        *RssGuid
 	PubDate     string `xml:"pubDate,omitempty"`
 	Enclosure   *RssEnclosure
 	XMLName     xml.Name        `xml:"item"`
-	Category    string          `xml:"category,omitempty"`
-	Comments    string          `xml:"comments,omitempty"`
+	Category    CData     `xml:"category,omitempty"`
+	Comments    CData     `xml:"comments,omitempty"`
 	Extra       []ExtensionNode `xml:",any"` // custom nodes at item scope
 }
 
+
+// RssFeed represents the RSS channel.
 type RssFeed struct {
-	Title          string     `xml:"title"`       // required
-	Link           string     `xml:"link"`        // required
-	Description    string     `xml:"description"` // required
-	ManagingEditor string     `xml:"managingEditor,omitempty"`
-	LastBuildDate  string     `xml:"lastBuildDate,omitempty"`
-	PubDate        string     `xml:"pubDate,omitempty"`
-	Items          []*RssItem `xml:"item"`
-	Copyright      string     `xml:"copyright,omitempty"`
-	Image          *RssImage  `xml:"image,omitempty"`
-	Language       string     `xml:"language,omitempty"`
-	Category       string     `xml:"category,omitempty"`
+	Title          CData `xml:"title"`       // required
+	Link           string      `xml:"link"`        // required
+	Description    CData `xml:"description"` // required
+	ManagingEditor CData `xml:"managingEditor,omitempty"`
+	LastBuildDate  string      `xml:"lastBuildDate,omitempty"`
+	PubDate        string      `xml:"pubDate,omitempty"`
+	Items          []*RssItem  `xml:"item"`
+	Copyright      CData `xml:"copyright,omitempty"`
+	Image          *RssImage   `xml:"image,omitempty"`
+	Language       string      `xml:"language,omitempty"`
+	Category       CData `xml:"category,omitempty"`
 
 	XMLName   xml.Name        `xml:"channel"`
-	WebMaster string          `xml:"webMaster,omitempty"`
-	Generator string          `xml:"generator,omitempty"`
-	Docs      string          `xml:"docs,omitempty"`
-	Cloud     string          `xml:"cloud,omitempty"`
+	WebMaster CData     `xml:"webMaster,omitempty"`
+	Generator CData     `xml:"generator,omitempty"`
+	Docs      CData     `xml:"docs,omitempty"`
+	Cloud     CData     `xml:"cloud,omitempty"`
 	Ttl       int             `xml:"ttl,omitempty"`
-	Rating    string          `xml:"rating,omitempty"`
-	SkipHours string          `xml:"skipHours,omitempty"`
-	SkipDays  string          `xml:"skipDays,omitempty"`
+	Rating    CData     `xml:"rating,omitempty"`
+	SkipHours CData     `xml:"skipHours,omitempty"`
+	SkipDays  CData     `xml:"skipDays,omitempty"`
 	Extra     []ExtensionNode `xml:",any"` // custom nodes at channel scope
 }
+
 
 // Rss is a wrapper to marshal a Feed as RSS 2.0.
 type Rss struct {
@@ -260,27 +282,27 @@ func (r *Rss) RssFeed() *RssFeed {
 		href = r.Link.Href
 	}
 	channel := &RssFeed{
-		Title:          r.Title,
+		Title:          CData(r.Title),
 		Link:           href,
-		Description:    r.Description,
-		ManagingEditor: author,
+		Description:    CData(r.Description),
+		ManagingEditor: CData(author),
 		PubDate:        pub,
 		LastBuildDate:  build,
-		Copyright:      r.Copyright,
+		Copyright:      CData(r.Copyright),
 		Image:          rssImageFromFeed(r.Image, extras.imgW, extras.imgH),
 		Language:       r.Language,
-		WebMaster:      extras.webMaster,
-		Generator:      extras.generator,
-		Docs:           extras.docs,
-		Cloud:          extras.cloud,
+		WebMaster:      CData(extras.webMaster),
+		Generator:      CData(extras.generator),
+		Docs:           CData(extras.docs),
+		Cloud:          CData(extras.cloud),
 		Ttl:            extras.ttl,
-		Rating:         extras.rating,
-		SkipHours:      extras.skipHours,
-		SkipDays:       extras.skipDays,
+		Rating:         CData(extras.rating),
+		SkipHours:      CData(extras.skipHours),
+		SkipDays:       CData(extras.skipDays),
 	}
 
 	// Category override or generic mapping
-	channel.Category = resolveChannelCategory(r.Feed, extras.catOverride)
+	channel.Category = CData(resolveChannelCategory(r.Feed, extras.catOverride))
 
 	// append items
 	for _, it := range r.Items {
@@ -313,8 +335,8 @@ func (r *RssFeed) FeedXml() interface{} {
 
 func newRssItem(i *Item) *RssItem {
 	item := &RssItem{
-		Title:       i.Title,
-		Description: i.Description,
+		Title:       CData(i.Title),
+		Description: CData(i.Description),
 		PubDate:     anyTimeFormat(time.RFC1123Z, i.Created, i.Updated),
 	}
 	if i.ID != "" {
@@ -341,13 +363,13 @@ func newRssItem(i *Item) *RssItem {
 		if i.Author.Name != "" {
 			author = fmt.Sprintf("%s (%s)", i.Author.Email, i.Author.Name)
 		}
-		item.Author = author
+		item.Author = CData(author)
 	}
 	// append extensions
 	if len(i.Extensions) > 0 {
 		cat, comments, extras := itemRSSExtensions(i.Extensions)
-		item.Category = cat
-		item.Comments = comments
+		item.Category = CData(cat)
+		item.Comments = CData(comments)
 		if len(extras) > 0 {
 			item.Extra = append(item.Extra, extras...)
 		}
